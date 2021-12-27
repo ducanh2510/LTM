@@ -16,8 +16,48 @@
 #include <pthread.h>
 
 #define BUFF_SIZE 100
+#define MAX_CLIENTS 10
 
 singleList groups, files, users;
+
+typedef struct
+{ // Them moi
+    struct sockaddr_in address;
+    int sockfd;
+    int uid;
+    char name[100];
+} client_t;
+
+client_t *clients[MAX_CLIENTS];
+
+int num_client = 0;
+
+pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER; 
+
+// Them client vao mang cac client, mang nay chua cac client dang ket noi
+void queue_add(client_t *cl)
+{
+    pthread_mutex_lock(&clients_mutex);
+
+    for (int i = 0; i < MAX_CLIENTS; ++i)
+    {
+        if (!clients[i])
+        {
+            clients[i] = cl;
+			num_client++;
+            break;
+        }
+    }
+
+    pthread_mutex_unlock(&clients_mutex);
+}
+
+void print_queue(){
+	printf("[+]List clients: \n");
+	for(int i = 0; i<num_client; i++){
+		printf("%s\n", clients[i]->name);
+	}
+}
 
 // ========================================
 
@@ -281,6 +321,12 @@ int signIn(int sock, singleList users, user_struct **loginUser){
 	*loginUser = (user_struct*)(findByName(1, users, username));
 	if(strcmp((*loginUser)->password, password) == 0){
 		sendCode(sock, LOGIN_SUCCESS);
+		client_t *cli = (client_t*)malloc(sizeof(client_t));
+		strcpy(cli->name, username);
+		cli->sockfd = sock;
+		cli->uid = num_client;
+		queue_add(cli);
+		
 		return 1;
 	}
 	sendCode(sock, INCORRECT_PASSWORD);
@@ -288,18 +334,17 @@ int signIn(int sock, singleList users, user_struct **loginUser){
 }
 
 // Gui toi cac client khac tru nguoi gui - not check
-void send_message(int sock, char *s, singleList list, char username[50]) {
-	list.cur = list.root;
-	while (list.cur != NULL) {
-		if(strcmp(((user_struct*)list.cur->element)->user_name, username) != 0) {
-			sendWithCheck(sock, s, strlen(s) + 1);
-			list.cur = list.cur->next;
-		}else {
-			continue;
+void send_message(char name[100], char *nameFile) {
+	for(int i = 0; i < num_client; i++){
+		printf("%s-%d||%s-%d\n",name, strlen(name), clients[i]->name, strlen(clients[i]->name));
+		if(strcmp(name, clients[i]->name) != 0){
+			send(clients[i]->sockfd, nameFile, sizeof(nameFile), 0);
+			printf("->%dsend to %s - %s - %s\n",i, clients[i]->name, name, nameFile);
 		}
-		
 	}
 }
+
+
 
 // Ham nhan file va ghi file vao thu muc chua - OK
 int receiveUploadedFile(int sock, char filePath[100]){
@@ -363,19 +408,22 @@ void *handleThread(void *my_sock){
 					// nhan username va password
 					printf("LOGIN_REQUEST\n");
 					if(signIn(new_socket, users, &loginUser) == 1){
+						// print_queue();
 						while(REQUEST != LOGOUT_REQUEST){
 							readWithCheck( new_socket , buff, BUFF_SIZE);
 							REQUEST = atoi(buff);
 							switch (REQUEST) {
 							case FIND_IMG_REQUEST:
 								readWithCheck(new_socket, buff, sizeof(buff));
+								buff[strlen(buff) - 1] = '\0';
 								strcpy(username, buff);
+								// username[strlen(username)-1] = '\0';
 								readWithCheck(new_socket, buff, sizeof(buff));
 								if(strstr(buff, "exit")) {
 
 								}else {
 									// gui yeu cau toi cac may con lai
-									send_message(new_socket, buff, users, username);
+									send_message(username, buff);
 									readWithCheck(new_socket, buff, sizeof(buff));
 									char file_path[BUFF_SIZE];
 									file_path[0] = '\0';

@@ -10,6 +10,8 @@
 #define BUFF_SIZE 100
 char user[50] = "";
 
+void str_trim_lf(char *arr, int length);
+
 // Gui thong diep toi server va check
 void sendWithCheck(int sock, char buff[BUFF_SIZE], int length){
 	int sendByte = 0;
@@ -194,7 +196,9 @@ void signUp(int sock) {
 		while(strlen(username) <= 0 || username[0] == '\n'){
 			printf("Username is empty!!!!!!!\n");
 			printf("Enter username: ");
-			fgets(username, 50, stdin);
+			// fgets(username, 50, stdin);
+			scanf("%s", username);
+			str_trim_lf(username, 50);
 		}
 		sendWithCheck(sock, username, sizeof(username));
 
