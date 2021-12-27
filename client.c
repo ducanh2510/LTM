@@ -305,10 +305,10 @@ void* SendFileToServer(int new_socket, char fname[50]) {
 	fseek(fp, 0, SEEK_SET);
 
 	int n;
-	char sendline[BUFF_SIZE] = {0};
+	char sendline[1024] = {0};
 	send(new_socket, &size, sizeof(size), 0);
-	while ((n = fread(sendline, sizeof(char), BUFF_SIZE, fp)) > 0) {
-		if (n != BUFF_SIZE && ferror(fp)) {
+	while ((n = fread(sendline, sizeof(char), 1024, fp)) > 0) {
+		if (n != 1024 && ferror(fp)) {
 			perror("Read File Error");
 			exit(1);
 		}
@@ -316,8 +316,9 @@ void* SendFileToServer(int new_socket, char fname[50]) {
 			perror("Can't send file");
 			exit(1);
 		}
-		memset(sendline, 0, BUFF_SIZE);
+		memset(sendline, 0, 1024);
 	}
+	fclose(fp);
 }
 
 // Ham xu li gui yeu cau tim kiem cua client cho server - not checked

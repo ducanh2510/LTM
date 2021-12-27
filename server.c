@@ -162,7 +162,7 @@ void convertSimpleFilesToString(singleList simple_file, char str[1000]){
   	}
 }
 
-// not check
+// not check 
 void convertSimpleUsersToString(singleList simple_user, char str[1000]){
 	str[0] = '\0';
 	simple_user.cur = simple_user.root;
@@ -317,26 +317,28 @@ int receiveUploadedFile(int sock, char filePath[100]){
 	printf("%d\n", sizeFileRecv);
 	ssize_t n;
 	int total = 0;
-    char buff[BUFF_SIZE] = {0};
-    while ((n = recv(sock, buff, BUFF_SIZE, 0)) > 0) {
+    char buff[1024] = {0};
+    while ((n = recv(sock, buff, 1024, 0)) > 0) {
 		if (n == -1) {
             perror("Receive File Error");
             exit(1);
         }
-		if(n + total > sizeFileRecv) {
-			n = sizeFileRecv - total;
-		}
-        if (fwrite(buff, 1, n, fp) != n) {
+		// if(n + total > sizeFileRecv) {
+		// 	n = sizeFileRecv - total;
+		// }
+        if (fwrite(buff, sizeof(char), n, fp) != n) {
             perror("Write File Error");
             exit(1);
         }
 		total += n;
-        memset(buff, 0, BUFF_SIZE);
-		if(total == sizeFileRecv) {
+        memset(buff, 0, 1024);
+		if(total >= sizeFileRecv) {
 			break;
 		}
     }
 	printf("\nFile OK....Completed\n");
+	printf("TOTAL RECV: %d\n", total);
+	fclose(fp);
 	return 1;
 }
 
