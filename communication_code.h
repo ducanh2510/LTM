@@ -16,6 +16,8 @@
 #define BACK_REQUEST 135
 #define KICK_MEMBER_REQUEST 136
 #define FIND_IMG_REQUEST 140
+#define FIND_IMG_IN_USERS 141
+#define FILE_WAS_FOUND 142
 //==================================================//
 
 //====================== ALERT =====================//
