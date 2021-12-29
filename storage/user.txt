@@ -19,9 +19,3 @@ luuducanh
 noel
 123
 1
-levananh
-12345
-1
-viet
-12345
-1

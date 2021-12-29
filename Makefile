@@ -4,10 +4,10 @@ all:
 	gcc -o server server.c linked_list.h -pthread
 s:
 	clear
-	./server 9090
+	./server 5500
 c:
 	clear
-	./client 127.0.0.1 9090
+	./client 127.0.0.1 5500
 clean:
 	clear
 	rm -fr server
