@@ -161,9 +161,6 @@ void sendCode(int sock, int code)
 // ok mot nua
 int checkExistence(int type, singleList list, char string[50])
 {
-	// type = 1 check user
-	// type = 2 check group
-	// type = 3 check file
 	switch (type)
 	{
 	// Check user
@@ -492,46 +489,22 @@ void *handleThread(void *my_sock)
 						printf("user name: %s\n", username);
 						filename = strtok(NULL, "*");
 						printf("file name: %s\n", filename);
-						// readWithCheck(new_socket, buff, sizeof(buff));
-						// buff[strlen(buff) - 1] = '\0';
-						// strcpy(username, buff);
-						// readWithCheck(new_socket, buff, sizeof(buff));
-						// if (strcmp(buff, "exit") == 0) {
 
-						// }else {
 						// 	// gui yeu cau toi cac may con lai
 						send_message(username, filename);
 						printf("SEND TO ALL : %s\n", buff);
-						// 	memset(buff, '\0', strlen(buff) + 1);
-						// 	readWithCheck(new_socket, buff, BUFF_SIZE);
-						// 	printf("CODE : %s\n", buff);
-						// 	buff[strlen(buff) - 1] = '\0';
-						// 	if(atoi(buff) == FILE_WAS_FOUND) {
-						// 		printf("OK\n");
-						// 		readWithCheck(new_socket, buff, sizeof(buff));
-						// 		char file_path[BUFF_SIZE];
-						// 		file_path[0] = '\0';
-						// 		strcpy(file_path, "./files/");
-						// 		strcat(file_path, buff);
-						// 		strcat(file_path, ".jpg");
-						// 		receiveUploadedFile(new_socket, file_path);
-						// 		memset(buff, '\0', strlen(buff) + 1);
-						// 	}
-						// }
+
 						memset(username, '\0', sizeof(username) + 1);
 						break;
 					case FILE_WAS_FOUND:
 						username = strtok(NULL, "*");
 						printf("[+]FOUND FROM %s\n", username);
 						char file_path[BUFF_SIZE];
-						file_path[0] = '\0';
-						strcpy(file_path, "./files/");
-						strcat(file_path, username);
-						strcat(file_path, ".jpg");
+						sprintf(file_path, "./files/_%s.jpg", username);
 						receiveUploadedFile(new_socket, file_path);
-
+						memset(file_path, '\0', strlen(file_path)+1);
 						break;
-					case LOGOUT_REQUEST: // request code: 14
+					case LOGOUT_REQUEST: 
 						printf("LOGOUT_REQUEST\n");
 						loginUser = NULL;
 						sendCode(new_socket, LOGOUT_SUCCESS);

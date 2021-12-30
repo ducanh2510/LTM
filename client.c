@@ -11,16 +11,22 @@
 #define REQUEST_SIZE 1024
 char user[100] = "";
 
-void printRequest(char *request){
+void printRequest(char *request)
+{
 	printf("REQUEST: %s\n", request);
+	fflush(stdout);
 }
 
 // Gui thong diep toi server va check - OK
-void sendWithCheck(int sock, char buff[BUFF_SIZE], int length) {
+void sendWithCheck(int sock, char buff[BUFF_SIZE], int length)
+{
 	int sendByte = 0;
 	sendByte = send(sock, buff, length, 0);
-	if (sendByte > 0) {
-	}else {
+	if (sendByte > 0)
+	{
+	}
+	else
+	{
 		close(sock);
 		printf("Connection is interrupted.n");
 		exit(0);
@@ -28,26 +34,32 @@ void sendWithCheck(int sock, char buff[BUFF_SIZE], int length) {
 }
 
 // Nhan thong diep tu server va check - OK
-int readWithCheck(int sock, char buff[BUFF_SIZE], int length) {
+int readWithCheck(int sock, char buff[BUFF_SIZE], int length)
+{
 	int recvByte = 0;
 	recvByte = recv(sock, buff, length, 0);
-	if (recvByte > 0) {
+	if (recvByte > 0)
+	{
 		return recvByte;
-	}else {
+	}
+	else
+	{
 		close(sock);
 		exit(0);
 	}
 }
 
 //
-int printAvailableElements(char str[1000], char available_elements[20][50]) {
+int printAvailableElements(char str[1000], char available_elements[20][50])
+{
 	char *token;
 	int number_of_available_elements = 0;
 	/* get the first token */
 	token = strtok(str, "+");
 
 	/* walk through other tokens */
-	while (token != NULL) {
+	while (token != NULL)
+	{
 		printf("%d. %s\n", number_of_available_elements + 1, token);
 		strcpy(available_elements[number_of_available_elements], token);
 		token = strtok(NULL, "+");
@@ -67,9 +79,11 @@ void clearBuff();
 void str_trim_lf(char *arr, int length);
 
 //=============== MAIN ==================
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 	pthread_t thread;
-	if (argc != 3) {
+	if (argc != 3)
+	{
 		printf("Please input IP address and port number\n");
 		return 0;
 	}
@@ -80,7 +94,8 @@ int main(int argc, char *argv[]) {
 	struct sockaddr_in serv_addr;
 
 	// Try catch false when connecting
-	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	{
 		printf("\n Socket creation error \n");
 		return -1;
 	}
@@ -89,19 +104,22 @@ int main(int argc, char *argv[]) {
 	serv_addr.sin_port = htons(port);
 
 	// Convert IPv4 and IPv6 addresses from text to binary form
-	if (inet_pton(AF_INET, ip_address, &serv_addr.sin_addr) <= 0) {
+	if (inet_pton(AF_INET, ip_address, &serv_addr.sin_addr) <= 0)
+	{
 		printf("\nInvalid address/ Address not supported \n");
 		return -1;
 	}
 
-	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+	{
 		printf("\nConnection Failed \n");
 		return -1;
 	}
 
 	// ============================Start to communicate with Server======================
 	// ==================================================================================
-	do {
+	do
+	{
 		navigation(sock);
 	} while (1);
 
@@ -110,7 +128,8 @@ int main(int argc, char *argv[]) {
 }
 
 // Menu dang nhap hoac dang ky - OK
-int menu1() {
+int menu1()
+{
 	int choice, catch;
 	char err[10];
 	printf("\n\n");
@@ -136,7 +155,8 @@ int menu1() {
 }
 
 // Menu cac chuc nang cua chuong trinh - co the bo
-int menu2() {
+int menu2()
+{
 	int choice, catch;
 	char err[10];
 	printf("\n\n");
@@ -151,7 +171,8 @@ int menu2() {
 	printf("\n\n");
 	if (catch > 0)
 		return choice;
-	else {
+	else
+	{
 		fgets(err, 10, stdin);
 		err[strlen(err) - 1] = '\0';
 		printf("\"%s\" is not allowed!\n", err);
@@ -160,7 +181,8 @@ int menu2() {
 }
 
 // Menu chuc nang chuong trinh 2 - co the bo
-int menu3(char group_name[50]) {
+int menu3(char group_name[50])
+{
 	int choice, catch;
 	char err[10];
 	printf("\n\n");
@@ -179,7 +201,8 @@ int menu3(char group_name[50]) {
 
 	if (catch > 0)
 		return choice;
-	else {
+	else
+	{
 		fgets(err, 10, stdin);
 		err[strlen(err) - 1] = '\0';
 		printf("\"%s\" is not allowed!\n", err);
@@ -188,7 +211,8 @@ int menu3(char group_name[50]) {
 }
 
 // Chuc nang dang ky - OK
-void signUp(int sock) {
+void signUp(int sock)
+{
 	char username[50], password[50], buff[BUFF_SIZE];
 
 	sendCode(sock, REGISTER_REQUEST);
@@ -196,10 +220,12 @@ void signUp(int sock) {
 	printf("========================= SIGNUP ========================\n");
 
 	clearBuff();
-	while (1) {
+	while (1)
+	{
 		printf("Enter username: ");
 		fgets(username, 50, stdin);
-		while (strlen(username) <= 0 || username[0] == '\n') {
+		while (strlen(username) <= 0 || username[0] == '\n')
+		{
 			printf("Username is empty!!!!!!!\n");
 			printf("Enter username: ");
 			scanf("%s", username);
@@ -208,16 +234,20 @@ void signUp(int sock) {
 		sendWithCheck(sock, username, sizeof(username));
 
 		readWithCheck(sock, buff, BUFF_SIZE);
-		if (atoi(buff) == EXISTENCE_USERNAME) {
+		if (atoi(buff) == EXISTENCE_USERNAME)
+		{
 			printf("Username is not available!!\n");
-		}else {
+		}
+		else
+		{
 			break;
 		}
 	};
 
 	printf("Enter password: ");
 	fgets(password, 50, stdin);
-	while (strlen(password) <= 0 || password[0] == '\n') {
+	while (strlen(password) <= 0 || password[0] == '\n')
+	{
 		printf("Password is empty!!!!!!!!!\n");
 		printf("Enter password: ");
 		fgets(password, 50, stdin);
@@ -225,23 +255,27 @@ void signUp(int sock) {
 	sendWithCheck(sock, password, sizeof(password));
 
 	readWithCheck(sock, buff, BUFF_SIZE);
-	if (atoi(buff) == REGISTER_SUCCESS) {
+	if (atoi(buff) == REGISTER_SUCCESS)
+	{
 		printf("Dang ki tai khoan thanh cong\n");
 	}
 }
 
 // Chuc nang dang nhap - OK
-int signIn(int sock) {
+int signIn(int sock)
+{
 	char username[50], password[50], buff[BUFF_SIZE];
 	sendCode(sock, LOGIN_REQUEST);
 	readWithCheck(sock, buff, BUFF_SIZE);
 	printf("========================= SIGNIN ========================\n");
 
 	clearBuff();
-	while (1){
+	while (1)
+	{
 		printf("Enter username: ");
 		fgets(username, 50, stdin);
-		while (strlen(username) <= 0 || username[0] == '\n'){
+		while (strlen(username) <= 0 || username[0] == '\n')
+		{
 			username[0] = '\0';
 			printf("Username is empty!!!!\n");
 			printf("Enter username: ");
@@ -251,43 +285,54 @@ int signIn(int sock) {
 		sendWithCheck(sock, username, sizeof(username));
 
 		readWithCheck(sock, buff, BUFF_SIZE);
-		if (atoi(buff) == NON_EXISTENCE_USERNAME) {
+		if (atoi(buff) == NON_EXISTENCE_USERNAME)
+		{
 			printf("Username is not available!!\n");
-		}else {
+		}
+		else
+		{
 			break;
 		}
 	}
 
 	printf("Enter password: ");
 	fgets(password, 50, stdin);
-	while (strlen(password) <= 0 || password[0] == '\n'){
+	while (strlen(password) <= 0 || password[0] == '\n')
+	{
 		printf("Password is empty!!!!!\n");
 		printf("Enter password: ");
 		fgets(password, 50, stdin);
 	}
 	sendWithCheck(sock, password, sizeof(password) + 1);
 	readWithCheck(sock, buff, BUFF_SIZE);
-	if (atoi(buff) != LOGIN_SUCCESS) {
+	if (atoi(buff) != LOGIN_SUCCESS)
+	{
 		printf("Login failed!!\n");
 		return 0;
-	}else {
+	}
+	else
+	{
 		strcpy(user, username);
 		return 1;
 	}
 }
 
 // Ham gui tin hieu tuong ung cho server - OK
-void sendCode(int sock, int code) {
+void sendCode(int sock, int code)
+{
 	char codeStr[10];
 	sprintf(codeStr, "%d", code);
 	sendWithCheck(sock, codeStr, strlen(codeStr) + 1);
 }
 
 // Xu li dau enter - OK
-void str_trim_lf(char *arr, int length) {
+void str_trim_lf(char *arr, int length)
+{
 	int i;
-	for (i = 0; i < length; i++) {
-		if (arr[i] == '\n') {
+	for (i = 0; i < length; i++)
+	{
+		if (arr[i] == '\n')
+		{
 			arr[i] = '\0';
 			break;
 		}
@@ -295,17 +340,21 @@ void str_trim_lf(char *arr, int length) {
 }
 
 // Chua biet lam gi - not check
-void clearBuff() {
+void clearBuff()
+{
 	char c;
-	while ((c = getchar()) != '\n' && c != EOF) {
+	while ((c = getchar()) != '\n' && c != EOF)
+	{
 	}
 }
 
 // Ham gui file cho server - OK
-void *SendFileToServer(int new_socket, char fname[50]) {
+void *SendFileToServer(int new_socket, char fname[50])
+{
 
 	FILE *fp = fopen(fname, "rb");
-	if (fp == NULL) {
+	if (fp == NULL)
+	{
 		printf("File open error");
 	}
 	fseek(fp, 0, SEEK_END);
@@ -315,12 +364,15 @@ void *SendFileToServer(int new_socket, char fname[50]) {
 	int n;
 	char sendline[1024] = {0};
 	send(new_socket, &size, sizeof(size), 0);
-	while ((n = fread(sendline, sizeof(char), 1024, fp)) > 0) {
-		if (n != 1024 && ferror(fp)) {
+	while ((n = fread(sendline, sizeof(char), 1024, fp)) > 0)
+	{
+		if (n != 1024 && ferror(fp))
+		{
 			perror("Read File Error");
 			exit(1);
 		}
-		if (send(new_socket, sendline, n, 0) == -1) {
+		if (send(new_socket, sendline, n, 0) == -1)
+		{
 			perror("Can't send file");
 			exit(1);
 		}
@@ -330,19 +382,21 @@ void *SendFileToServer(int new_socket, char fname[50]) {
 }
 
 // Ham xu li gui yeu cau tim kiem cua client cho server - not checked
-void send_msg_handler(int *sock) {
+void send_msg_handler(int *sock)
+{
 	int sockfd = *sock;
 	char buffer[100];
 	char send_request[REQUEST_SIZE];
-	
 
-	while (1) {
+	while (1)
+	{
 		printf("Please enter a name of file > ");
 		fflush(stdout);
-		scanf("%s", buffer);
+		fgets(buffer, 100, stdin);
+		// scanf("%s", buffer);
 		str_trim_lf(buffer, 100);
-		printf("find->%s\n", buffer);
-		fflush(stdout);
+		// printf("find->%s\n", buffer);
+		// fflush(stdout);
 		str_trim_lf(user, 100);
 		sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
 		printRequest(send_request);
@@ -352,74 +406,77 @@ void send_msg_handler(int *sock) {
 }
 
 // Ham xu li nhan yeu cau cua server phia client - not checked
-void recv_msg_handler(int *sock) {
+void recv_msg_handler(int *sock)
+{
 	int REQUEST;
 	int sockfd = *sock;
 	char recvReq[REQUEST_SIZE];
 	char sendReq[REQUEST_SIZE];
 	char *fileName;
 	// printf("12345");
-	while (1) {
+	while (1)
+	{
 
-		char message[BUFF_SIZE] = {}; 
+		char message[BUFF_SIZE] = {};
 		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
 		printf("FIND_IMG_IN_USERS : %s \n", recvReq);
 		// fflush(stdout);
 		char *opcode;
 		opcode = strtok(recvReq, "*");
-		if (receive > 0) {
+		if (receive > 0)
+		{
 			REQUEST = atoi(opcode);
-			switch (REQUEST) {
+			switch (REQUEST)
+			{
 			case FIND_IMG_IN_USERS:
+
 				fileName = strtok(NULL, "*");
-				printf("FIND_IMG_IN_USERS : %s \n", fileName);
-				// neu tim thay:
-				sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
-
-				send(sockfd, sendReq, sizeof(sendReq), 0);
-
-				printf("FILE_WAS_FOUND\n");
-				// printf("FIND_IMG_IN_USERS:\n");
-				// readWithCheck(sockfd, fileName, sizeof(fileName));
-				// printf("FIND_IMG_IN_USERS: %s\n", fileName);
 				char file_path[200];
 				strcpy(file_path, "./");
 				strcat(file_path, fileName);
-				printf("PATH: %s\n", file_path);
-				// // Khong vao duoc file
-				// if (access(file_path, F_OK) != -1) {
-				// 	sendCode(sockfd, FILE_WAS_FOUND);
-				// 	sendWithCheck(sockfd, user, strlen(user) + 1);
+				printf("FIND_IMG_IN_USERS : %s \n", fileName);
+				// neu tim thay:
+				if (access(file_path, F_OK) != -1)
+				{
+					printf("FILE %s WAS_FOUND\n", fileName);
+					sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
+					send(sockfd, sendReq, sizeof(sendReq), 0);
 					SendFileToServer(sockfd, file_path);
-				// }
+					printf("[+]SEND_FILE_DONE\n");
+					printf("Please enter a name of file > ");
+					fflush(stdout);
+				}
 				break;
 
 			default:
 				break;
 			}
-		}else if (receive == 0) {
+		}
+		else
+		{
 		}
 	}
 }
 
-void navigation(int sock) {
+void navigation(int sock)
+{
 	int opt1, opt2, opt3;
 	char buffer[100];
 	opt1 = menu1();
 
-	switch (opt1) {
+	switch (opt1)
+	{
 	case 1: // Dang ki
 		signUp(sock);
 		break;
 	case 2: // Dang nhap
-		if (signIn(sock) == 1) {
+		if (signIn(sock) == 1)
+		{
 
 			printf("=== WELCOME TO THE SHARED IMAGE APPLICATION ===\n");
-			// if (fork() == 0){
-			// 	recv_msg_handler(&sock);
-			// }
 			pthread_t recv_msg_thread;
-			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
+			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0)
+			{
 				printf("ERROR: pthread\n");
 				exit(EXIT_FAILURE);
 			}
