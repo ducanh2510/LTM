@@ -39,26 +39,7 @@ int readWithCheck(int sock, char buff[BUFF_SIZE], int length) {
 	}
 }
 
-//
-int printAvailableElements(char str[1000], char available_elements[20][50]) {
-	char *token;
-	int number_of_available_elements = 0;
-	/* get the first token */
-	token = strtok(str, "+");
-
-	/* walk through other tokens */
-	while (token != NULL) {
-		printf("%d. %s\n", number_of_available_elements + 1, token);
-		strcpy(available_elements[number_of_available_elements], token);
-		token = strtok(NULL, "+");
-		number_of_available_elements++;
-	}
-	return number_of_available_elements;
-}
-
 int menu1();
-int menu2();
-int menu3(char group_name[50]);
 void navigation(int sock);
 void signUp(int sock);
 int signIn(int sock);
@@ -128,58 +109,6 @@ int menu1() {
 		return choice;
 	else
 	{
-		fgets(err, 10, stdin);
-		err[strlen(err) - 1] = '\0';
-		printf("\"%s\" is not allowed!\n", err);
-		return -1;
-	}
-}
-
-// Menu cac chuc nang cua chuong trinh - co the bo
-int menu2() {
-	int choice, catch;
-	char err[10];
-	printf("\n\n");
-	printf("========================= ACTION ========================\n");
-	printf("1. Search Image\n");
-	printf("2. Logout\n");
-	printf("=========================================================\n");
-	printf("=> Enter your choice: ");
-	catch = scanf("%d", &choice);
-	fflush(stdin);
-
-	printf("\n\n");
-	if (catch > 0)
-		return choice;
-	else {
-		fgets(err, 10, stdin);
-		err[strlen(err) - 1] = '\0';
-		printf("\"%s\" is not allowed!\n", err);
-		return -1;
-	}
-}
-
-// Menu chuc nang chuong trinh 2 - co the bo
-int menu3(char group_name[50]) {
-	int choice, catch;
-	char err[10];
-	printf("\n\n");
-	printf("========================== %s ========================\n", group_name);
-	printf("1. Upload\n");
-	printf("2. Download\n");
-	printf("3. Delete file\n");
-	printf("4. View all files\n");
-	printf("5. Kick\n");
-	printf("6. Back\n");
-	printf("==========================================================\n");
-	printf("=> Enter your choice: ");
-	catch = scanf("%d", &choice);
-
-	printf("\n\n");
-
-	if (catch > 0)
-		return choice;
-	else {
 		fgets(err, 10, stdin);
 		err[strlen(err) - 1] = '\0';
 		printf("\"%s\" is not allowed!\n", err);
@@ -334,8 +263,6 @@ void send_msg_handler(int *sock) {
 	int sockfd = *sock;
 	char buffer[100];
 	char send_request[REQUEST_SIZE];
-	
-
 	while (1) {
 		printf("Please enter a name of file > ");
 		scanf("%s", buffer);
@@ -356,38 +283,22 @@ void recv_msg_handler(int *sock) {
 	char recvReq[REQUEST_SIZE];
 	char sendReq[REQUEST_SIZE];
 	char *fileName;
-	// printf("12345");
 	while (1) {
-
 		char message[BUFF_SIZE] = {}; 
 		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
 		printf("FIND_IMG_IN_USERS : %s", recvReq);
+		fflush(stdout);
 		char *opcode;
 		opcode = strtok(recvReq, "*");
 		if (receive > 0) {
-			REQUEST = atoi(message);
+			REQUEST = atoi(opcode);
 			switch (REQUEST) {
 			case FIND_IMG_IN_USERS:
 				fileName = strtok(NULL, "*");
-				
 				// neu tim thay:
 				sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
 				send(sockfd, sendReq, sizeof(sendReq), 0);
-				// printf("FIND_IMG_IN_USERS:\n");
-				// readWithCheck(sockfd, fileName, sizeof(fileName));
-				// printf("FIND_IMG_IN_USERS: %s\n", fileName);
-				// char file_path[200];
-				// strcpy(file_path, "./");
-				// strcat(file_path, fileName);
-				// printf("PATH: %s\n", file_path);
-				// // Khong vao duoc file
-				// if (access(file_path, F_OK) != -1) {
-				// 	sendCode(sockfd, FILE_WAS_FOUND);
-				// 	sendWithCheck(sockfd, user, strlen(user) + 1);
-				// 	SendFileToServer(sockfd, file_path);
-				// }
 				break;
-
 			default:
 				break;
 			}
@@ -409,22 +320,24 @@ void navigation(int sock) {
 		if (signIn(sock) == 1) {
 
 			printf("=== WELCOME TO THE SHARED IMAGE APPLICATION ===\n");
-			if (fork() == 0){
-				recv_msg_handler(&sock);
+			// if (fork() == 0){
+			// 	recv_msg_handler(&sock);
+			// }
+
+			pthread_t send_msg_thread;
+			if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
+				printf("ERROR: pthread\n");
+				exit(EXIT_FAILURE);
 			}
-			// pthread_t recv_msg_thread;
-			// if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
-			// 	printf("ERROR: pthread\n");
-			// 	exit(EXIT_FAILURE);
-			// }
+			pthread_t recv_msg_thread;
+			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
+				printf("ERROR: pthread\n");
+				exit(EXIT_FAILURE);
+			}
 
-			// pthread_t send_msg_thread;
-			// if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
-			// 	printf("ERROR: pthread\n");
-			// 	exit(EXIT_FAILURE);
-			// }
+			pthread_join(recv_msg_thread, NULL);
 
-			send_msg_handler(&sock);
+			// send_msg_handler(&sock);
 		}
 		break;
 	case 3:

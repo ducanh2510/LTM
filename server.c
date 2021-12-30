@@ -85,14 +85,6 @@ int readWithCheck(int sock, char buff[BUFF_SIZE], int length) {
 	}
 }
 
-// ========================================
-int haveNumber(char *s) {
-	if(s[0] >= '0' && s[0] <= '9') {
-		return 1;
-	}
-	return 0;
-}
-
 // Doc file chua thong tin user roi luu vao danh sach lien ket userList - OK
 void readUserFile(singleList *users) {
 	char username[50], password[50], group_name[50];
@@ -207,65 +199,6 @@ void *findByName(int type, singleList list, char string[50])
 }
 
 // not check
-void convertSimpleFilesToString(singleList simple_file, char str[1000])
-{
-	str[0] = '\0';
-	simple_file.cur = simple_file.root;
-	while (simple_file.cur != NULL)
-	{
-		strcat(str, ((simple_file_struct *)simple_file.cur->element)->file_name);
-		if (simple_file.cur->next == NULL)
-		{
-			str[strlen(str)] = '\0';
-		}
-		else
-		{
-			strcat(str, "+");
-		}
-		simple_file.cur = simple_file.cur->next;
-	}
-}
-
-// not check
-void convertSimpleUsersToString(singleList simple_user, char str[1000])
-{
-	str[0] = '\0';
-	simple_user.cur = simple_user.root;
-	while (simple_user.cur != NULL)
-	{
-		strcat(str, ((simple_user_struct *)simple_user.cur->element)->user_name);
-		if (simple_user.cur->next == NULL)
-		{
-			str[strlen(str)] = '\0';
-		}
-		else
-		{
-			strcat(str, "+");
-		}
-		simple_user.cur = simple_user.cur->next;
-	}
-}
-
-// not check
-singleList getFilesOwns(singleList files, char username[50])
-{
-	singleList files_owns;
-	createSingleList(&files_owns);
-	files.cur = files.root;
-	while (files.cur != NULL)
-	{
-		if (strcmp(((file_struct *)files.cur->element)->owner, username) == 0)
-		{
-			simple_file_struct *file_element = (simple_file_struct *)malloc(sizeof(simple_file_struct));
-			strcpy(file_element->file_name, ((file_struct *)files.cur->element)->name);
-			insertEnd(&files_owns, file_element);
-		}
-		files.cur = files.cur->next;
-	}
-	return files_owns;
-}
-
-// not check
 int updateDownloadedTimes(singleList files, char file_name[50])
 {
 	files.cur = files.root;
@@ -358,14 +291,8 @@ int signIn(int sock, singleList users, user_struct **loginUser) {
 // Gui toi cac client khac tru nguoi gui - not check
 void send_message(char name[100], char *nameFile) {
 	char send_request[REQUEST_SIZE];
-	if(haveNumber(nameFile) == 1) {
-		return;
-	}
-	// nameFile[strlen(nameFile)] = '\0';
 	for (int i = 0; i < num_client; i++) {
 		if (strcmp(name, clients[i]->name) != 0) {
-			// sendCode(clients[i]->sockfd, FIND_IMG_IN_USERS);
-			// send(clients[i]->sockfd, nameFile, strlen(nameFile), 0);
 			sprintf(send_request, "%d*%s", FIND_IMG_IN_USERS, nameFile);
 			printf("->send to %s - %s - %s - %s \n", clients[i]->name, name, nameFile, send_request);
 			send(clients[i]->sockfd, send_request, sizeof(send_request), 0);
@@ -418,12 +345,8 @@ void *handleThread(void *my_sock) {
 	int new_socket = *((int *)my_sock);
 	int REQUEST;
 	char buff[1024];
-	
-
-
 	char username[BUFF_SIZE] = {};
 	user_struct *loginUser = NULL;
-
 	while (1) {
 		readWithCheck(new_socket, buff, 100);
 		REQUEST = atoi(buff);
@@ -452,32 +375,8 @@ void *handleThread(void *my_sock) {
 						printf("user name: %s\n", username);
 						filename = strtok(NULL,"*");
 						printf("file name: %s\n", filename);
-						// readWithCheck(new_socket, buff, sizeof(buff));
-						// buff[strlen(buff) - 1] = '\0';
-						// strcpy(username, buff);
-						// readWithCheck(new_socket, buff, sizeof(buff));
-						// if (strcmp(buff, "exit") == 0) {
-
-						// }else {
-						// 	// gui yeu cau toi cac may con lai
-							send_message(username, filename);
-							printf("SEND TO ALL : %s\n", buff);
-						// 	memset(buff, '\0', strlen(buff) + 1);
-						// 	readWithCheck(new_socket, buff, BUFF_SIZE);
-						// 	printf("CODE : %s\n", buff);
-						// 	buff[strlen(buff) - 1] = '\0';
-						// 	if(atoi(buff) == FILE_WAS_FOUND) {
-						// 		printf("OK\n");
-						// 		readWithCheck(new_socket, buff, sizeof(buff));
-						// 		char file_path[BUFF_SIZE];
-						// 		file_path[0] = '\0';
-						// 		strcpy(file_path, "./files/");
-						// 		strcat(file_path, buff);
-						// 		strcat(file_path, ".jpg");
-						// 		receiveUploadedFile(new_socket, file_path);
-						// 		memset(buff, '\0', strlen(buff) + 1);
-						// 	}
-						// }
+						send_message(username, filename);
+						printf("SEND TO ALL : %s\n", buff);
 						memset(username, '\0', sizeof(username)+1);
 						break;
 					case FILE_WAS_FOUND:
