@@ -8,7 +8,12 @@
 #include "./communication_code.h"
 
 #define BUFF_SIZE 100
+#define REQUEST_SIZE 1024
 char user[100] = "";
+
+void printRequest(char *request){
+	printf("REQUEST: %s\n", request);
+}
 
 // Gui thong diep toi server va check - OK
 void sendWithCheck(int sock, char buff[BUFF_SIZE], int length) {
@@ -319,7 +324,7 @@ void *SendFileToServer(int new_socket, char fname[50]) {
 			perror("Can't send file");
 			exit(1);
 		}
-		memset(sendline, 0, 1024);
+		memset(sendline, '\0', 1024);
 	}
 	fclose(fp);
 }
@@ -328,14 +333,18 @@ void *SendFileToServer(int new_socket, char fname[50]) {
 void send_msg_handler(int *sock) {
 	int sockfd = *sock;
 	char buffer[100];
+	char send_request[REQUEST_SIZE];
+	
 
 	while (1) {
-		sendCode(sockfd, FIND_IMG_REQUEST);
-		sendWithCheck(sockfd, user, strlen(user) + 1);
 		printf("Please enter a name of file > ");
 		scanf("%s", buffer);
 		str_trim_lf(buffer, 100);
-		sendWithCheck(sockfd, buffer, strlen(buffer) + 1);
+		printf("find->%s\n", buffer);
+		str_trim_lf(user, 100);
+		sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
+		printRequest(send_request);
+		sendWithCheck(sockfd, send_request, strlen(send_request) + 1);
 		bzero(buffer, 100);
 	}
 }
@@ -344,24 +353,39 @@ void send_msg_handler(int *sock) {
 void recv_msg_handler(int *sock) {
 	int REQUEST;
 	int sockfd = *sock;
+	char recvReq[REQUEST_SIZE];
+	char sendReq[REQUEST_SIZE];
+	char *fileName;
+	// printf("12345");
 	while (1) {
-		char message[BUFF_SIZE] = {}, fileName[BUFF_SIZE] = {'\0'}; 
-		int receive = readWithCheck(sockfd, message, BUFF_SIZE);
+
+		char message[BUFF_SIZE] = {}; 
+		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
+		printf("FIND_IMG_IN_USERS : %s", recvReq);
+		char *opcode;
+		opcode = strtok(recvReq, "*");
 		if (receive > 0) {
 			REQUEST = atoi(message);
 			switch (REQUEST) {
 			case FIND_IMG_IN_USERS:
-				readWithCheck(sockfd, fileName, sizeof(fileName));
-				char file_path[200];
-				strcpy(file_path, "./");
-				strcat(file_path, fileName);
-				printf("PATH: %s\n", file_path);
-				// Khong vao duoc file
-				if (access(file_path, F_OK) != -1) {
-					sendCode(sockfd, FILE_WAS_FOUND);
-					sendWithCheck(sockfd, user, strlen(user) + 1);
-					SendFileToServer(sockfd, file_path);
-				}
+				fileName = strtok(NULL, "*");
+				
+				// neu tim thay:
+				sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
+				send(sockfd, sendReq, sizeof(sendReq), 0);
+				// printf("FIND_IMG_IN_USERS:\n");
+				// readWithCheck(sockfd, fileName, sizeof(fileName));
+				// printf("FIND_IMG_IN_USERS: %s\n", fileName);
+				// char file_path[200];
+				// strcpy(file_path, "./");
+				// strcat(file_path, fileName);
+				// printf("PATH: %s\n", file_path);
+				// // Khong vao duoc file
+				// if (access(file_path, F_OK) != -1) {
+				// 	sendCode(sockfd, FILE_WAS_FOUND);
+				// 	sendWithCheck(sockfd, user, strlen(user) + 1);
+				// 	SendFileToServer(sockfd, file_path);
+				// }
 				break;
 
 			default:
@@ -383,12 +407,22 @@ void navigation(int sock) {
 		break;
 	case 2: // Dang nhap
 		if (signIn(sock) == 1) {
+
 			printf("=== WELCOME TO THE SHARED IMAGE APPLICATION ===\n");
-			pthread_t recv_msg_thread;
-			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
-				printf("ERROR: pthread\n");
-				exit(EXIT_FAILURE);
+			if (fork() == 0){
+				recv_msg_handler(&sock);
 			}
+			// pthread_t recv_msg_thread;
+			// if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
+			// 	printf("ERROR: pthread\n");
+			// 	exit(EXIT_FAILURE);
+			// }
+
+			// pthread_t send_msg_thread;
+			// if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
+			// 	printf("ERROR: pthread\n");
+			// 	exit(EXIT_FAILURE);
+			// }
 
 			send_msg_handler(&sock);
 		}

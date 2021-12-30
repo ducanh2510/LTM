@@ -17,6 +17,7 @@
 
 #define BUFF_SIZE 100
 #define MAX_CLIENTS 10
+#define REQUEST_SIZE 1024
 
 singleList groups, files, users;
 typedef struct{
@@ -30,6 +31,10 @@ client_t *clients[MAX_CLIENTS];
 int num_client = 0;
 
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void printRequest(char *request){
+	printf("REQUEST: %s\n", request);
+}
 
 // Them cac client da dang nhap thanh cong vao mang - OK
 void queue_add(client_t *cl) {
@@ -352,15 +357,19 @@ int signIn(int sock, singleList users, user_struct **loginUser) {
 
 // Gui toi cac client khac tru nguoi gui - not check
 void send_message(char name[100], char *nameFile) {
+	char send_request[REQUEST_SIZE];
 	if(haveNumber(nameFile) == 1) {
 		return;
 	}
-	nameFile[strlen(nameFile)] = '\0';
+	// nameFile[strlen(nameFile)] = '\0';
 	for (int i = 0; i < num_client; i++) {
 		if (strcmp(name, clients[i]->name) != 0) {
-			sendCode(clients[i]->sockfd, FIND_IMG_IN_USERS);
-			send(clients[i]->sockfd, nameFile, strlen(nameFile), 0);
-			printf("->send to %s - %s - %s\n", clients[i]->name, name, nameFile);
+			// sendCode(clients[i]->sockfd, FIND_IMG_IN_USERS);
+			// send(clients[i]->sockfd, nameFile, strlen(nameFile), 0);
+			sprintf(send_request, "%d*%s", FIND_IMG_IN_USERS, nameFile);
+			printf("->send to %s - %s - %s - %s \n", clients[i]->name, name, nameFile, send_request);
+			send(clients[i]->sockfd, send_request, sizeof(send_request), 0);
+			memset(send_request, '\0', strlen(send_request)+1);
 		}
 	}
 }
@@ -393,7 +402,7 @@ int receiveUploadedFile(int sock, char filePath[100]) {
 			exit(1);
 		}
 		total += n;
-		memset(buff, 0, 1024);
+		memset(buff, '\0', 1024);
 		if (total >= sizeFileRecv) {
 			break;
 		}
@@ -408,7 +417,10 @@ int receiveUploadedFile(int sock, char filePath[100]) {
 void *handleThread(void *my_sock) {
 	int new_socket = *((int *)my_sock);
 	int REQUEST;
-	char buff[BUFF_SIZE];
+	char buff[1024];
+	
+
+
 	char username[BUFF_SIZE] = {};
 	user_struct *loginUser = NULL;
 
@@ -425,36 +437,53 @@ void *handleThread(void *my_sock) {
 			// nhan username va password
 			printf("LOGIN_REQUEST\n");
 			if (signIn(new_socket, users, &loginUser) == 1) {
+				// 
 				while (REQUEST != LOGOUT_REQUEST) {
-					readWithCheck(new_socket, buff, BUFF_SIZE);
-					REQUEST = atoi(buff);
+					char *username;
+					char *filename;
+					readWithCheck(new_socket, buff, REQUEST_SIZE);
+					printRequest(buff);
+					char *opcode;
+					opcode = strtok(buff, "*");
+					REQUEST = atoi(opcode);
 					switch (REQUEST) {
-					case FIND_IMG_REQUEST:		
-						readWithCheck(new_socket, buff, sizeof(buff));
-						buff[strlen(buff) - 1] = '\0';
-						strcpy(username, buff);
-						readWithCheck(new_socket, buff, sizeof(buff));
-						if (strcmp(buff, "exit") == 0) {
+					case FIND_IMG_REQUEST:
+						username = strtok(NULL, "*");
+						printf("user name: %s\n", username);
+						filename = strtok(NULL,"*");
+						printf("file name: %s\n", filename);
+						// readWithCheck(new_socket, buff, sizeof(buff));
+						// buff[strlen(buff) - 1] = '\0';
+						// strcpy(username, buff);
+						// readWithCheck(new_socket, buff, sizeof(buff));
+						// if (strcmp(buff, "exit") == 0) {
 
-						}else {
-							// gui yeu cau toi cac may con lai
-							send_message(username, buff);
-							readWithCheck(new_socket, buff, BUFF_SIZE);
-							buff[strlen(buff) - 1] = '\0';
-							printf("CODE : %s", buff);
-							if(atoi(buff) == FILE_WAS_FOUND) {
-								printf("OK\n");
-								readWithCheck(new_socket, buff, sizeof(buff));
-								char file_path[BUFF_SIZE];
-								file_path[0] = '\0';
-								strcpy(file_path, "./files/");
-								strcat(file_path, buff);
-								strcat(file_path, ".jpg");
-								receiveUploadedFile(new_socket, file_path);
-								memset(buff, 0, strlen(buff) + 1);
-							}
-						}
+						// }else {
+						// 	// gui yeu cau toi cac may con lai
+							send_message(username, filename);
+							printf("SEND TO ALL : %s\n", buff);
+						// 	memset(buff, '\0', strlen(buff) + 1);
+						// 	readWithCheck(new_socket, buff, BUFF_SIZE);
+						// 	printf("CODE : %s\n", buff);
+						// 	buff[strlen(buff) - 1] = '\0';
+						// 	if(atoi(buff) == FILE_WAS_FOUND) {
+						// 		printf("OK\n");
+						// 		readWithCheck(new_socket, buff, sizeof(buff));
+						// 		char file_path[BUFF_SIZE];
+						// 		file_path[0] = '\0';
+						// 		strcpy(file_path, "./files/");
+						// 		strcat(file_path, buff);
+						// 		strcat(file_path, ".jpg");
+						// 		receiveUploadedFile(new_socket, file_path);
+						// 		memset(buff, '\0', strlen(buff) + 1);
+						// 	}
+						// }
+						memset(username, '\0', sizeof(username)+1);
 						break;
+					case FILE_WAS_FOUND:
+						username = strtok(NULL, "*");
+						printf("[+]FOUND FROM %s\n", username);
+					break;
 					case LOGOUT_REQUEST: //request code: 14
 						printf("LOGOUT_REQUEST\n");
 						loginUser = NULL;
