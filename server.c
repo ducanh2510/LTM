@@ -20,7 +20,8 @@
 #define REQUEST_SIZE 1024
 
 singleList groups, files, users;
-typedef struct{
+typedef struct
+{
 	int sockfd;
 	int uid;
 	char name[100];
@@ -32,12 +33,14 @@ int num_client = 0;
 
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void printRequest(char *request){
+void printRequest(char *request)
+{
 	printf("REQUEST: %s\n", request);
 }
 
 // Them cac client da dang nhap thanh cong vao mang - OK
-void queue_add(client_t *cl) {
+void queue_add(client_t *cl)
+{
 	pthread_mutex_lock(&clients_mutex);
 	for (int i = 0; i < MAX_CLIENTS; ++i)
 	{
@@ -52,7 +55,8 @@ void queue_add(client_t *cl) {
 }
 
 // In ra danh sach client dang ket noi - OK
-void print_queue() {
+void print_queue()
+{
 	printf("[+]List clients: \n");
 	for (int i = 0; i < num_client; i++)
 	{
@@ -63,52 +67,68 @@ void print_queue() {
 // ========================================
 
 // Ham gui thong diep cho client va check - OK
-void sendWithCheck(int sock, char buff[BUFF_SIZE], int length) {
+void sendWithCheck(int sock, char buff[BUFF_SIZE], int length)
+{
 	int sendByte = 0;
 	sendByte = send(sock, buff, length, 0);
-	if (sendByte > 0) {
-	}else {
+	if (sendByte > 0)
+	{
+	}
+	else
+	{
 		close(sock);
 		pthread_exit(0);
 	}
 }
 
 // Ham nhan thong diep tu client va check - OK
-int readWithCheck(int sock, char buff[BUFF_SIZE], int length) {
+int readWithCheck(int sock, char buff[BUFF_SIZE], int length)
+{
 	int recvByte = 0;
 	recvByte = read(sock, buff, length);
-	if (recvByte > 0) {
+	if (recvByte > 0)
+	{
 		return recvByte;
-	}else {
+	}
+	else
+	{
 		close(sock);
 		pthread_exit(0);
 	}
 }
 
 // ========================================
-int haveNumber(char *s) {
-	if(s[0] >= '0' && s[0] <= '9') {
+int haveNumber(char *s)
+{
+	if (s[0] >= '0' && s[0] <= '9')
+	{
 		return 1;
 	}
 	return 0;
 }
 
 // Doc file chua thong tin user roi luu vao danh sach lien ket userList - OK
-void readUserFile(singleList *users) {
+void readUserFile(singleList *users)
+{
 	char username[50], password[50], group_name[50];
 	int status;
 	FILE *f = fopen("./storage/user.txt", "r");
 
-	if (f == NULL) {
+	if (f == NULL)
+	{
 		perror("Error while opening the file.\n");
 		exit(EXIT_FAILURE);
 	}
 
-	while (1) {
+	while (1)
+	{
 		char c = fgetc(f);
-		if (c != EOF) {
+		if (c != EOF)
+		{
 			int res = fseek(f, -1, SEEK_CUR);
-		}else {
+		}
+		else
+		{
 			break;
 		}
 
@@ -130,7 +150,8 @@ void readUserFile(singleList *users) {
 }
 
 // Gui tin hieu CODE tuong ung cho client - OK
-void sendCode(int sock, int code) {
+void sendCode(int sock, int code)
+{
 	char codeStr[10];
 	sprintf(codeStr, "%d", code);
 	printf("-->Response: %s\n", codeStr);
@@ -280,23 +301,29 @@ int updateDownloadedTimes(singleList files, char file_name[50])
 }
 
 // Dang ky checked - OK
-void signUp(int sock, singleList *users) {
+void signUp(int sock, singleList *users)
+{
 	char buff[BUFF_SIZE], username[50], password[50];
 	int size;
 	sendCode(sock, REGISTER_SUCCESS);
 
-	while (1) {
+	while (1)
+	{
 		size = readWithCheck(sock, buff, BUFF_SIZE);
 
 		strcpy(username, buff);
 		username[strlen(username) - 1] = '\0';
-		if (username[strlen(username) - 2] == '\n') {
+		if (username[strlen(username) - 2] == '\n')
+		{
 			username[strlen(username) - 2] = '\0';
 		}
 		printf("username: \'%s\'\n", username);
-		if (checkExistence(1, *users, username) == 1) {
+		if (checkExistence(1, *users, username) == 1)
+		{
 			sendCode(sock, EXISTENCE_USERNAME);
-		}else {
+		}
+		else
+		{
 			sendCode(sock, REGISTER_SUCCESS);
 			break;
 		}
@@ -304,7 +331,8 @@ void signUp(int sock, singleList *users) {
 
 	readWithCheck(sock, buff, BUFF_SIZE);
 	buff[strlen(buff) - 1] = '\0';
-	if (buff[strlen(buff) - 2] == '\n') {
+	if (buff[strlen(buff) - 2] == '\n')
+	{
 		buff[strlen(buff) - 2] = '\0';
 	}
 	printf("password: %s\n", buff);
@@ -319,20 +347,25 @@ void signUp(int sock, singleList *users) {
 }
 
 // Dang nhap checked - OK
-int signIn(int sock, singleList users, user_struct **loginUser) {
+int signIn(int sock, singleList users, user_struct **loginUser)
+{
 	char buff[BUFF_SIZE], username[50], password[50];
 	sendCode(sock, LOGIN_SUCCESS);
 
-	while (1) {
+	while (1)
+	{
 		readWithCheck(sock, buff, BUFF_SIZE);
 		buff[strlen(buff) - 1] = '\0';
 		printf("username: %s\n", buff);
 
 		strcpy(username, buff);
-		if (checkExistence(1, users, username) == 1) {
+		if (checkExistence(1, users, username) == 1)
+		{
 			sendCode(sock, LOGIN_SUCCESS);
 			break;
-		}else {
+		}
+		else
+		{
 			sendCode(sock, NON_EXISTENCE_USERNAME);
 		}
 	}
@@ -342,7 +375,8 @@ int signIn(int sock, singleList users, user_struct **loginUser) {
 	strcpy(password, buff);
 
 	*loginUser = (user_struct *)(findByName(1, users, username));
-	if (strcmp((*loginUser)->password, password) == 0) {
+	if (strcmp((*loginUser)->password, password) == 0)
+	{
 		sendCode(sock, LOGIN_SUCCESS);
 		client_t *cli = (client_t *)malloc(sizeof(client_t));
 		strcpy(cli->name, username);
@@ -356,32 +390,31 @@ int signIn(int sock, singleList users, user_struct **loginUser) {
 }
 
 // Gui toi cac client khac tru nguoi gui - not check
-void send_message(char name[100], char *nameFile) {
+void send_message(char name[100], char *nameFile)
+{
 	char send_request[REQUEST_SIZE];
-	if(haveNumber(nameFile) == 1) {
-		return;
-	}
-	// nameFile[strlen(nameFile)] = '\0';
-	for (int i = 0; i < num_client; i++) {
-		if (strcmp(name, clients[i]->name) != 0) {
-			// sendCode(clients[i]->sockfd, FIND_IMG_IN_USERS);
-			// send(clients[i]->sockfd, nameFile, strlen(nameFile), 0);
+	for (int i = 0; i < num_client; i++)
+	{
+		if (strcmp(name, clients[i]->name) != 0)
+		{
 			sprintf(send_request, "%d*%s", FIND_IMG_IN_USERS, nameFile);
 			printf("->send to %s - %s - %s - %s \n", clients[i]->name, name, nameFile, send_request);
 			send(clients[i]->sockfd, send_request, sizeof(send_request), 0);
-			memset(send_request, '\0', strlen(send_request)+1);
+			memset(send_request, '\0', strlen(send_request) + 1);
 		}
 	}
 }
 
 // Ham nhan file va ghi file vao thu muc chua - OK
-int receiveUploadedFile(int sock, char filePath[100]) {
+int receiveUploadedFile(int sock, char filePath[100])
+{
 	int bytesReceived = 0;
 	char recvBuff[1024], fname[100], path[100];
 	FILE *fp;
 	printf("Receiving file...\n");
 	fp = fopen(filePath, "wb");
-	if (NULL == fp) {
+	if (NULL == fp)
+	{
 		printf("Error opening file\n");
 		return -1;
 	}
@@ -391,8 +424,10 @@ int receiveUploadedFile(int sock, char filePath[100]) {
 	ssize_t n;
 	int total = 0;
 	char buff[1024] = {0};
-	while ((n = recv(sock, buff, 1024, 0)) > 0) {
-		if (n == -1) {
+	while ((n = recv(sock, buff, 1024, 0)) > 0)
+	{
+		if (n == -1)
+		{
 			perror("Receive File Error");
 			exit(1);
 		}
@@ -403,7 +438,8 @@ int receiveUploadedFile(int sock, char filePath[100]) {
 		}
 		total += n;
 		memset(buff, '\0', 1024);
-		if (total >= sizeFileRecv) {
+		if (total >= sizeFileRecv)
+		{
 			break;
 		}
 	}
@@ -414,20 +450,21 @@ int receiveUploadedFile(int sock, char filePath[100]) {
 }
 
 // Ham xu li luong - not check
-void *handleThread(void *my_sock) {
+void *handleThread(void *my_sock)
+{
 	int new_socket = *((int *)my_sock);
 	int REQUEST;
 	char buff[1024];
-	
-
 
 	char username[BUFF_SIZE] = {};
 	user_struct *loginUser = NULL;
 
-	while (1) {
+	while (1)
+	{
 		readWithCheck(new_socket, buff, 100);
 		REQUEST = atoi(buff);
-		switch (REQUEST) {
+		switch (REQUEST)
+		{
 		case REGISTER_REQUEST:
 			printf("REGISTER_REQUEST\n");
 			signUp(new_socket, &users);
@@ -436,9 +473,11 @@ void *handleThread(void *my_sock) {
 		case LOGIN_REQUEST:
 			// nhan username va password
 			printf("LOGIN_REQUEST\n");
-			if (signIn(new_socket, users, &loginUser) == 1) {
-				// 
-				while (REQUEST != LOGOUT_REQUEST) {
+			if (signIn(new_socket, users, &loginUser) == 1)
+			{
+				//
+				while (REQUEST != LOGOUT_REQUEST)
+				{
 					char *username;
 					char *filename;
 					readWithCheck(new_socket, buff, REQUEST_SIZE);
@@ -446,11 +485,12 @@ void *handleThread(void *my_sock) {
 					char *opcode;
 					opcode = strtok(buff, "*");
 					REQUEST = atoi(opcode);
-					switch (REQUEST) {
+					switch (REQUEST)
+					{
 					case FIND_IMG_REQUEST:
 						username = strtok(NULL, "*");
 						printf("user name: %s\n", username);
-						filename = strtok(NULL,"*");
+						filename = strtok(NULL, "*");
 						printf("file name: %s\n", filename);
 						// readWithCheck(new_socket, buff, sizeof(buff));
 						// buff[strlen(buff) - 1] = '\0';
@@ -460,8 +500,8 @@ void *handleThread(void *my_sock) {
 
 						// }else {
 						// 	// gui yeu cau toi cac may con lai
-							send_message(username, filename);
-							printf("SEND TO ALL : %s\n", buff);
+						send_message(username, filename);
+						printf("SEND TO ALL : %s\n", buff);
 						// 	memset(buff, '\0', strlen(buff) + 1);
 						// 	readWithCheck(new_socket, buff, BUFF_SIZE);
 						// 	printf("CODE : %s\n", buff);
@@ -478,13 +518,20 @@ void *handleThread(void *my_sock) {
 						// 		memset(buff, '\0', strlen(buff) + 1);
 						// 	}
 						// }
-						memset(username, '\0', sizeof(username)+1);
+						memset(username, '\0', sizeof(username) + 1);
 						break;
 					case FILE_WAS_FOUND:
 						username = strtok(NULL, "*");
 						printf("[+]FOUND FROM %s\n", username);
-					break;
-					case LOGOUT_REQUEST: //request code: 14
+						char file_path[BUFF_SIZE];
+						file_path[0] = '\0';
+						strcpy(file_path, "./files/");
+						strcat(file_path, username);
+						strcat(file_path, ".jpg");
+						receiveUploadedFile(new_socket, file_path);
+
+						break;
+					case LOGOUT_REQUEST: // request code: 14
 						printf("LOGOUT_REQUEST\n");
 						loginUser = NULL;
 						sendCode(new_socket, LOGOUT_SUCCESS);
@@ -503,8 +550,10 @@ void *handleThread(void *my_sock) {
 }
 
 //==============MAIN==============
-int main(int argc, char *argv[]) {
-	if (argc == 1) {
+int main(int argc, char *argv[])
+{
+	if (argc == 1)
+	{
 		printf("Please input port number\n");
 		return 0;
 	}
@@ -516,13 +565,15 @@ int main(int argc, char *argv[]) {
 	int addrlen = sizeof(address);
 
 	// Creating socket file descriptor
-	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0)
+	{
 		perror("socket failed");
 		exit(EXIT_FAILURE);
 	}
 
 	// Forcefully attaching socket to the port
-	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt)))
+	{
 		perror("setsockopt");
 		exit(EXIT_FAILURE);
 	}
@@ -531,11 +582,13 @@ int main(int argc, char *argv[]) {
 	address.sin_port = htons(port);
 
 	// Forcefully attaching socket to the port
-	if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+	if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0)
+	{
 		perror("bind failed");
 		exit(EXIT_FAILURE);
 	}
-	if (listen(server_fd, 3) < 0) {
+	if (listen(server_fd, 3) < 0)
+	{
 		perror("listen");
 		exit(EXIT_FAILURE);
 	}
@@ -543,10 +596,12 @@ int main(int argc, char *argv[]) {
 	char buff[100];
 	createSingleList(&users);
 	readUserFile(&users);
-	while (1) {
+	while (1)
+	{
 		pthread_t tid;
 
-		if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
+		if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
+		{
 			perror("accept");
 			exit(EXIT_FAILURE);
 		}

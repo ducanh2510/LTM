@@ -338,9 +338,11 @@ void send_msg_handler(int *sock) {
 
 	while (1) {
 		printf("Please enter a name of file > ");
+		fflush(stdout);
 		scanf("%s", buffer);
 		str_trim_lf(buffer, 100);
 		printf("find->%s\n", buffer);
+		fflush(stdout);
 		str_trim_lf(user, 100);
 		sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
 		printRequest(send_request);
@@ -361,30 +363,34 @@ void recv_msg_handler(int *sock) {
 
 		char message[BUFF_SIZE] = {}; 
 		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
-		printf("FIND_IMG_IN_USERS : %s", recvReq);
+		printf("FIND_IMG_IN_USERS : %s \n", recvReq);
+		// fflush(stdout);
 		char *opcode;
 		opcode = strtok(recvReq, "*");
 		if (receive > 0) {
-			REQUEST = atoi(message);
+			REQUEST = atoi(opcode);
 			switch (REQUEST) {
 			case FIND_IMG_IN_USERS:
 				fileName = strtok(NULL, "*");
-				
+				printf("FIND_IMG_IN_USERS : %s \n", fileName);
 				// neu tim thay:
 				sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
+
 				send(sockfd, sendReq, sizeof(sendReq), 0);
+
+				printf("FILE_WAS_FOUND\n");
 				// printf("FIND_IMG_IN_USERS:\n");
 				// readWithCheck(sockfd, fileName, sizeof(fileName));
 				// printf("FIND_IMG_IN_USERS: %s\n", fileName);
-				// char file_path[200];
-				// strcpy(file_path, "./");
-				// strcat(file_path, fileName);
-				// printf("PATH: %s\n", file_path);
+				char file_path[200];
+				strcpy(file_path, "./");
+				strcat(file_path, fileName);
+				printf("PATH: %s\n", file_path);
 				// // Khong vao duoc file
 				// if (access(file_path, F_OK) != -1) {
 				// 	sendCode(sockfd, FILE_WAS_FOUND);
 				// 	sendWithCheck(sockfd, user, strlen(user) + 1);
-				// 	SendFileToServer(sockfd, file_path);
+					SendFileToServer(sockfd, file_path);
 				// }
 				break;
 
@@ -409,14 +415,14 @@ void navigation(int sock) {
 		if (signIn(sock) == 1) {
 
 			printf("=== WELCOME TO THE SHARED IMAGE APPLICATION ===\n");
-			if (fork() == 0){
-				recv_msg_handler(&sock);
-			}
-			// pthread_t recv_msg_thread;
-			// if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
-			// 	printf("ERROR: pthread\n");
-			// 	exit(EXIT_FAILURE);
+			// if (fork() == 0){
+			// 	recv_msg_handler(&sock);
 			// }
+			pthread_t recv_msg_thread;
+			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
+				printf("ERROR: pthread\n");
+				exit(EXIT_FAILURE);
+			}
 
 			// pthread_t send_msg_thread;
 			// if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
