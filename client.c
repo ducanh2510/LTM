@@ -232,7 +232,6 @@ void clearBuff() {
 
 // Ham gui file cho server - OK
 void *SendFileToServer(int new_socket, char fname[50]) {
-
 	FILE *fp = fopen(fname, "rb");
 	if (fp == NULL) {
 		printf("File open error");
@@ -241,7 +240,7 @@ void *SendFileToServer(int new_socket, char fname[50]) {
 	int size = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 
-	int n;
+	int n, total = 0;
 	char sendline[1024] = {0};
 	send(new_socket, &size, sizeof(size), 0);
 	while ((n = fread(sendline, sizeof(char), 1024, fp)) > 0) {
@@ -253,9 +252,13 @@ void *SendFileToServer(int new_socket, char fname[50]) {
 			perror("Can't send file");
 			exit(1);
 		}
+		total += n;
 		memset(sendline, '\0', 1024);
+		if(total >= size) {
+			fclose(fp);
+			break;
+		}
 	}
-	fclose(fp);
 }
 
 // Ham xu li gui yeu cau tim kiem cua client cho server - not checked
@@ -265,7 +268,8 @@ void send_msg_handler(int *sock) {
 	char send_request[REQUEST_SIZE];
 	while (1) {
 		printf("Please enter a name of file > ");
-		scanf("%s", buffer);
+		fflush(stdout);
+		fgets(buffer, 100, stdin);
 		str_trim_lf(buffer, 100);
 		printf("find->%s\n", buffer);
 		str_trim_lf(user, 100);
@@ -286,8 +290,11 @@ void recv_msg_handler(int *sock) {
 	while (1) {
 		char message[BUFF_SIZE] = {}; 
 		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
-		printf("FIND_IMG_IN_USERS : %s", recvReq);
-		fflush(stdout);
+		if(strlen(recvReq) <= 0) {
+			break;
+		}
+		printf("FIND_IMG_IN_USERS : %s \n", recvReq);
+		// fflush(stdout);
 		char *opcode;
 		opcode = strtok(recvReq, "*");
 		if (receive > 0) {
@@ -295,9 +302,20 @@ void recv_msg_handler(int *sock) {
 			switch (REQUEST) {
 			case FIND_IMG_IN_USERS:
 				fileName = strtok(NULL, "*");
+				char file_path[200];
+				strcpy(file_path, "./");
+				strcat(file_path, fileName);
+				printf("FIND_IMG_IN_USERS : %s \n", fileName);
 				// neu tim thay:
-				sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
-				send(sockfd, sendReq, sizeof(sendReq), 0);
+				if(access(file_path, F_OK) != -1) {
+					sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
+					send(sockfd, sendReq, sizeof(sendReq), 0);
+					printf("FILE_WAS_FOUND\n");
+					SendFileToServer(sockfd, file_path);
+					printf("[+]SEND FILE DONE\n");
+					printf("Please enter a name of file > ");
+					fflush(stdout);
+				}
 				break;
 			default:
 				break;
@@ -323,14 +341,14 @@ void navigation(int sock) {
 			// if (fork() == 0){
 			// 	recv_msg_handler(&sock);
 			// }
-
-			pthread_t send_msg_thread;
-			if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
+			pthread_t recv_msg_thread;
+			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
 				printf("ERROR: pthread\n");
 				exit(EXIT_FAILURE);
 			}
-			pthread_t recv_msg_thread;
-			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
+
+			pthread_t send_msg_thread;
+			if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
 				printf("ERROR: pthread\n");
 				exit(EXIT_FAILURE);
 			}
