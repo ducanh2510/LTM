@@ -71,12 +71,12 @@ int main(int argc, char *argv[]) {
 
 	// Convert IPv4 and IPv6 addresses from text to binary form
 	if (inet_pton(AF_INET, ip_address, &serv_addr.sin_addr) <= 0) {
-		printf("\nInvalid address/ Address not supported \n");
+		printf("\n[-]Invalid address/ Address not supported \n");
 		return -1;
 	}
 
 	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-		printf("\nConnection Failed \n");
+		printf("\n[-]Connection Failed \n");
 		return -1;
 	}
 
@@ -197,7 +197,7 @@ int signIn(int sock) {
 	sendWithCheck(sock, password, sizeof(password) + 1);
 	readWithCheck(sock, buff, BUFF_SIZE);
 	if (atoi(buff) != LOGIN_SUCCESS) {
-		printf("Login failed!!\n");
+		printf("[-]Login failed!!\n");
 		return 0;
 	}else {
 		strcpy(user, username);
@@ -234,7 +234,7 @@ void clearBuff() {
 void *SendFileToServer(int new_socket, char fname[50]) {
 	FILE *fp = fopen(fname, "rb");
 	if (fp == NULL) {
-		printf("File open error");
+		printf("[-]File open error");
 	}
 	fseek(fp, 0, SEEK_END);
 	int size = ftell(fp);
@@ -245,11 +245,11 @@ void *SendFileToServer(int new_socket, char fname[50]) {
 	send(new_socket, &size, sizeof(size), 0);
 	while ((n = fread(sendline, sizeof(char), 1024, fp)) > 0) {
 		if (n != 1024 && ferror(fp)) {
-			perror("Read File Error");
+			perror("[-]Read File Error");
 			exit(1);
 		}
 		if (send(new_socket, sendline, n, 0) == -1) {
-			perror("Can't send file");
+			perror("[-]Can't send file");
 			exit(1);
 		}
 		total += n;
@@ -274,9 +274,9 @@ void send_msg_handler(int *sock) {
 		printf("find->%s\n", buffer);
 		str_trim_lf(user, 100);
 		sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
-		printRequest(send_request);
 		sendWithCheck(sockfd, send_request, strlen(send_request) + 1);
 		bzero(buffer, 100);
+		
 	}
 }
 
@@ -286,15 +286,14 @@ void recv_msg_handler(int *sock) {
 	int sockfd = *sock;
 	char recvReq[REQUEST_SIZE];
 	char sendReq[REQUEST_SIZE];
-	char *fileName;
+	char user_has_img[10][BUFF_SIZE];
+	int i = 0;
+	int choose;
+	char *fileName, *list_imgs;
 	while (1) {
 		char message[BUFF_SIZE] = {}; 
 		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
-		if(strlen(recvReq) <= 0) {
-			break;
-		}
-		printf("FIND_IMG_IN_USERS : %s \n", recvReq);
-		// fflush(stdout);
+		printf("[+}FIND_IMG_IN_USERS : %s \n", recvReq);
 		char *opcode;
 		opcode = strtok(recvReq, "*");
 		if (receive > 0) {
@@ -305,17 +304,43 @@ void recv_msg_handler(int *sock) {
 				char file_path[200];
 				strcpy(file_path, "./");
 				strcat(file_path, fileName);
-				printf("FIND_IMG_IN_USERS : %s \n", fileName);
+				printf("\n[+]FIND_IMG_IN_USERS : %s \n", fileName);
 				// neu tim thay:
 				if(access(file_path, F_OK) != -1) {
 					sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
 					send(sockfd, sendReq, sizeof(sendReq), 0);
-					printf("FILE_WAS_FOUND\n");
+					printf("[+]FILE_WAS_FOUND\n");
 					SendFileToServer(sockfd, file_path);
 					printf("[+]SEND FILE DONE\n");
 					printf("Please enter a name of file > ");
 					fflush(stdout);
+				}else {
+					sprintf(sendReq, "%d*%s", FILE_WAS_NOT_FOUND, user);
+					send(sockfd, sendReq, sizeof(sendReq), 0);
+					memset(sendReq, '\0', strlen(sendReq) + 1);
 				}
+				break;
+			case SEND_IMGS_TO_USER:
+				list_imgs = strtok(NULL, "*");
+				while(list_imgs != NULL) {
+					strcpy(user_has_img[i], list_imgs);
+					i++;
+					list_imgs = strtok(NULL, "*");
+				}
+				printf("Danh sach ten client co anh\n");
+				for(int j = 0; j < i; j++) {
+					printf("%d\t%s\n", j + 1, user_has_img[j]);
+				}
+				printf("Moi chon anh tai ve:\t");
+				fflush(stdout);
+				scanf("%d", &choose);
+				printf("%d\n", choose);
+				sprintf(sendReq, "%d*%s", CHOOSEN_USER, user_has_img[choose - 1]);
+				printf("CHOOSEN_USER: %s\n", sendReq);
+				send(sockfd, sendReq, sizeof(sendReq), 0);
+				i = 0;
+				// printf("Please enter a name of file > ");
+				// fflush(stdout);
 				break;
 			default:
 				break;
@@ -338,18 +363,15 @@ void navigation(int sock) {
 		if (signIn(sock) == 1) {
 
 			printf("=== WELCOME TO THE SHARED IMAGE APPLICATION ===\n");
-			// if (fork() == 0){
-			// 	recv_msg_handler(&sock);
-			// }
 			pthread_t recv_msg_thread;
 			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
-				printf("ERROR: pthread\n");
+				printf("[-]ERROR: pthread\n");
 				exit(EXIT_FAILURE);
 			}
 
 			pthread_t send_msg_thread;
 			if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
-				printf("ERROR: pthread\n");
+				printf("[-]ERROR: pthread\n");
 				exit(EXIT_FAILURE);
 			}
 

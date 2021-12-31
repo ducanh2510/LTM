@@ -18,7 +18,9 @@
 #define FIND_IMG_REQUEST 140
 #define FIND_IMG_IN_USERS 141
 #define FILE_WAS_FOUND 142
-#define EXIT_FIND_IMG 145
+#define FILE_WAS_NOT_FOUND 143
+#define SEND_IMGS_TO_USER 144
+#define CHOOSEN_USER 145
 //==================================================//
 
 //====================== ALERT =====================//
