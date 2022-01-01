@@ -401,6 +401,8 @@ void recv_msg_handler(int *sock) {
 				receiveUploadedFile(sockfd, file_path);
 				memset(sendReq, '\0', strlen(sendReq) + 1);
 				recv_sig = 0;
+				num_c = 0;
+				memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
 				break;
 			default:
 				break;
