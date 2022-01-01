@@ -325,6 +325,7 @@ void send_msg_handler(int *sock) {
 			fgets(buffer, 100, stdin);
 			str_trim_lf(buffer, 100);
 			str_trim_lf(user, 100);
+			recv_sig = 1;
 			if(strstr(buffer, "exit")) {
 				break;
 			}
@@ -332,7 +333,6 @@ void send_msg_handler(int *sock) {
 				sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
 				sendWithCheck(sockfd, send_request, strlen(send_request) + 1);
 				bzero(buffer, 100);
-				recv_sig = 1;
 				memset(send_request, '\0', strlen(send_request) + 1);
 			}
 		}
@@ -402,6 +402,7 @@ void recv_msg_handler(int *sock) {
 				memset(sendReq, '\0', strlen(sendReq) + 1);
 				recv_sig = 0;
 				num_c = 0;
+				memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
 				break;
 			default:
 				break;

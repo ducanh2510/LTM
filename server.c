@@ -63,6 +63,16 @@ void print_queue() {
 	}
 }
 
+// Xu li dau enter - OK
+void str_trim_lf(char *arr, int length) {
+	int i;
+	for (i = 0; i < length; i++) {
+		if (arr[i] == '\n') {
+			arr[i] = '\0';
+			break;
+		}
+	}
+}
 // ========================================
 
 // Ham gui thong diep cho client va check - OK
@@ -398,13 +408,13 @@ void *handleThread(void *my_sock) {
 						send_message(username, filename);
 						count_send = num_client - 1;
 						printf("[+]SEND TO ALL : %s\n", buff);
-						memset(username, '\0', sizeof(username) + 1);
+						memset(username, '\0', strlen(username) + 1);
 						break;
 					case FILE_WAS_FOUND:
 						username = strtok(NULL, "*");
 						printf("[+]FOUND FROM %s\n", username);  
 						char file_path[BUFF_SIZE];
-						username[strlen(username) - 1] = '\0';
+						str_trim_lf(username, 100);
 						sprintf(file_path, "./files/%s.jpg", username);
 						username[strlen(username)] = '\0';
 						pthread_mutex_lock(&clients_mutex);
@@ -416,9 +426,9 @@ void *handleThread(void *my_sock) {
 						if(count_send == count_write) {
 							send_message_to_sender(list_clients_img);
 							printf("LIST IMGS: %s\n", list_clients_img);
-							memset(list_clients_img, '\0', strlen(list_clients_img) + 1);
 							memset(main_name, '\0', strlen(main_name) + 1);
 							count_send = count_write = 0;
+							memset(username, '\0', strlen(username) + 1);
 						}
 						break;
 					case CHOOSEN_USER:
@@ -426,6 +436,21 @@ void *handleThread(void *my_sock) {
 						printf("CHOOSEN USER: %s\n", choosen_user);
 						sprintf(file_path, "./files/%s.jpg", choosen_user);
 						SendFileToClient(new_socket, file_path);
+						char list_clients_img_copy[1024];
+						strcpy(list_clients_img_copy, list_clients_img);
+						char *deleteName;
+						deleteName = strtok(list_clients_img_copy, "*");
+						while(deleteName != NULL) {
+							char path[1024];
+							sprintf(path, "./files/%s.jpg", deleteName);
+							if(remove(path) == 0){
+								printf("[+] DELETED FILE SUCCESS: %s\n", path);
+							}else{
+								printf("[+] DELETED FILE FAILED: %s\n", path);
+							}
+							deleteName = strtok(NULL, "*");
+						}
+						memset(list_clients_img, '\0', strlen(list_clients_img) + 1);
 						break;
 					case FILE_WAS_NOT_FOUND:
 						count_send--;
