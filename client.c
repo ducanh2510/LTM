@@ -10,6 +10,12 @@
 #define BUFF_SIZE 100
 #define REQUEST_SIZE 1024
 char user[100] = "";
+int num_c = 0;
+int recv_sig = 0;
+char user_has_img[10][BUFF_SIZE];
+
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER; 
 
 void printRequest(char *request){
 	printf("REQUEST: %s\n", request);
@@ -261,22 +267,37 @@ void *SendFileToServer(int new_socket, char fname[50]) {
 	}
 }
 
+int findByUsername(char username[100]) {
+	for(int i = 0; i < num_c; i++) {
+		if(strstr(user_has_img[i], username)) {
+			return i;
+		}
+	}
+}
+
 // Ham xu li gui yeu cau tim kiem cua client cho server - not checked
 void send_msg_handler(int *sock) {
 	int sockfd = *sock;
 	char buffer[100];
 	char send_request[REQUEST_SIZE];
 	while (1) {
-		printf("Please enter a name of file > ");
-		fflush(stdout);
-		fgets(buffer, 100, stdin);
-		str_trim_lf(buffer, 100);
-		printf("find->%s\n", buffer);
-		str_trim_lf(user, 100);
-		sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
-		sendWithCheck(sockfd, send_request, strlen(send_request) + 1);
-		bzero(buffer, 100);
-		
+		if(recv_sig == 0) {
+			printf("Please enter a name of file > ");
+			fflush(stdout);
+			fgets(buffer, 100, stdin);
+			str_trim_lf(buffer, 100);
+			str_trim_lf(user, 100);
+			if(strstr(buffer, "exit")) {
+				break;
+			}
+			if(strlen(buffer) > 0) {
+				sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
+				sendWithCheck(sockfd, send_request, strlen(send_request) + 1);
+				bzero(buffer, 100);
+				recv_sig = 1;
+				memset(send_request, '\0', strlen(send_request) + 1);
+			}
+			}
 	}
 }
 
@@ -286,14 +307,12 @@ void recv_msg_handler(int *sock) {
 	int sockfd = *sock;
 	char recvReq[REQUEST_SIZE];
 	char sendReq[REQUEST_SIZE];
-	char user_has_img[10][BUFF_SIZE];
-	int i = 0;
 	int choose;
 	char *fileName, *list_imgs;
 	while (1) {
 		char message[BUFF_SIZE] = {}; 
 		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
-		printf("[+}FIND_IMG_IN_USERS : %s \n", recvReq);
+		printf("\n[+}FIND_IMG_IN_USERS : %s \n", recvReq);
 		char *opcode;
 		opcode = strtok(recvReq, "*");
 		if (receive > 0) {
@@ -304,7 +323,7 @@ void recv_msg_handler(int *sock) {
 				char file_path[200];
 				strcpy(file_path, "./");
 				strcat(file_path, fileName);
-				printf("\n[+]FIND_IMG_IN_USERS : %s \n", fileName);
+				printf("\n[+]FILENAME_TO_SEARCH : %s \n", fileName);
 				// neu tim thay:
 				if(access(file_path, F_OK) != -1) {
 					sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
@@ -312,35 +331,35 @@ void recv_msg_handler(int *sock) {
 					printf("[+]FILE_WAS_FOUND\n");
 					SendFileToServer(sockfd, file_path);
 					printf("[+]SEND FILE DONE\n");
-					printf("Please enter a name of file > ");
-					fflush(stdout);
 				}else {
 					sprintf(sendReq, "%d*%s", FILE_WAS_NOT_FOUND, user);
 					send(sockfd, sendReq, sizeof(sendReq), 0);
 					memset(sendReq, '\0', strlen(sendReq) + 1);
 				}
+				printf("Please enter a name of file > ");
+				fflush(stdout);
 				break;
 			case SEND_IMGS_TO_USER:
 				list_imgs = strtok(NULL, "*");
 				while(list_imgs != NULL) {
-					strcpy(user_has_img[i], list_imgs);
-					i++;
+					strcpy(user_has_img[num_c], list_imgs);
+					num_c++;
 					list_imgs = strtok(NULL, "*");
 				}
 				printf("Danh sach ten client co anh\n");
-				for(int j = 0; j < i; j++) {
+				for(int j = 0; j < num_c; j++) {
 					printf("%d\t%s\n", j + 1, user_has_img[j]);
-				}
+				} 
 				printf("Moi chon anh tai ve:\t");
 				fflush(stdout);
 				scanf("%d", &choose);
+				fflush(stdout);
 				printf("%d\n", choose);
 				sprintf(sendReq, "%d*%s", CHOOSEN_USER, user_has_img[choose - 1]);
-				printf("CHOOSEN_USER: %s\n", sendReq);
+				printf("CHOOSEN USER: %s\n", sendReq);
 				send(sockfd, sendReq, sizeof(sendReq), 0);
-				i = 0;
-				// printf("Please enter a name of file > ");
-				// fflush(stdout);
+				memset(sendReq, '\0', strlen(sendReq) + 1);
+				recv_sig = 0;
 				break;
 			default:
 				break;
@@ -363,18 +382,23 @@ void navigation(int sock) {
 		if (signIn(sock) == 1) {
 
 			printf("=== WELCOME TO THE SHARED IMAGE APPLICATION ===\n");
-			pthread_t recv_msg_thread;
-			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
-				printf("[-]ERROR: pthread\n");
-				exit(EXIT_FAILURE);
-			}
-
 			pthread_t send_msg_thread;
 			if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
 				printf("[-]ERROR: pthread\n");
 				exit(EXIT_FAILURE);
 			}
 
+			pthread_t recv_msg_thread;
+			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
+				printf("[-]ERROR: pthread\n");
+				exit(EXIT_FAILURE);
+			}
+
+			pthread_mutex_lock(&mutex);
+			while(recv_sig == 1) {
+				pthread_cond_wait(&cond, &mutex);
+			}
+			pthread_mutex_unlock(&mutex);
 			pthread_join(recv_msg_thread, NULL);
 
 			// send_msg_handler(&sock);

@@ -276,7 +276,6 @@ void send_message(char name[100], char *nameFile) {
 void send_message_to_sender(char *list_imgs) {
 	char send_request[REQUEST_SIZE];
 	for (int i = 0; i < num_client; i++) {
-		printf("Mainname: %s\t name: %s\n", main_name, clients[i]->name);
 		if (strcmp(main_name, clients[i]->name) == 0) {
 			sprintf(send_request, "%d*%s", SEND_IMGS_TO_USER, list_imgs);
 			send(clients[i]->sockfd, send_request, sizeof(send_request), 0);
