@@ -185,108 +185,108 @@ node * deleteSingleList(singleList * list)
 
 // Toàn bộ danh sách
 
-int printUser(singleList list)
-{
-  int i=0;
-  list.cur = list.root;
-	while(list.cur != NULL)
-  {
-    i++;
-    printf("%s\n", ((user_struct*)list.cur->element)->user_name);
-    list.cur = list.cur->next;
-  }
-  return i;
-}
+// int printUser(singleList list)
+// {
+//   int i=0;
+//   list.cur = list.root;
+// 	while(list.cur != NULL)
+//   {
+//     i++;
+//     printf("%s\n", ((user_struct*)list.cur->element)->user_name);
+//     list.cur = list.cur->next;
+//   }
+//   return i;
+// }
 
-void printSimpleGroup(singleList group)
-{
-  group.cur = group.root;
-	while(group.cur != NULL)
-  {
-    printf("%s\n", ((simple_group_struct*)group.cur->element)->group_name);
-    group.cur = group.cur->next;
-  }
-}
+// void printSimpleGroup(singleList group)
+// {
+//   group.cur = group.root;
+// 	while(group.cur != NULL)
+//   {
+//     printf("%s\n", ((simple_group_struct*)group.cur->element)->group_name);
+//     group.cur = group.cur->next;
+//   }
+// }
 
-int printFile(singleList list)
-{
-  int i=0;
-  list.cur = list.root;
-	while(list.cur != NULL)
-      {
-        i++;
-        printf("%s\n", ((file_struct*)list.cur->element)->name);
-        list.cur = list.cur->next;
-      }
-    return i;
-}
+// int printFile(singleList list)
+// {
+//   int i=0;
+//   list.cur = list.root;
+// 	while(list.cur != NULL)
+//       {
+//         i++;
+//         printf("%s\n", ((file_struct*)list.cur->element)->name);
+//         list.cur = list.cur->next;
+//       }
+//     return i;
+// }
 
-int printGroup(singleList list)
-{
-  int i=0;
-  list.cur = list.root;
-	while(list.cur != NULL)
-      {
-        i++;
-        printf("Name: %s\n", ((group_struct*)list.cur->element)->group_name);
-        printf("Owner: %s\n", ((group_struct*)list.cur->element)->owner);
-        printf("members = %d\n", ((group_struct*)list.cur->element)->number_of_members);
-        printUser(((group_struct*)list.cur->element)->members);
-        printf("files = %d\n", ((group_struct*)list.cur->element)->number_of_files);
-        printFile(((group_struct*)list.cur->element)->files);
-        printf("=================================================\n");
-        list.cur = list.cur->next;
-      }
-    return i;
-}
+// int printGroup(singleList list)
+// {
+//   int i=0;
+//   list.cur = list.root;
+// 	while(list.cur != NULL)
+//       {
+//         i++;
+//         printf("Name: %s\n", ((group_struct*)list.cur->element)->group_name);
+//         printf("Owner: %s\n", ((group_struct*)list.cur->element)->owner);
+//         printf("members = %d\n", ((group_struct*)list.cur->element)->number_of_members);
+//         printUser(((group_struct*)list.cur->element)->members);
+//         printf("files = %d\n", ((group_struct*)list.cur->element)->number_of_files);
+//         printFile(((group_struct*)list.cur->element)->files);
+//         printf("=================================================\n");
+//         list.cur = list.cur->next;
+//       }
+//     return i;
+// }
 
-int printFiles(singleList files){
+// int printFiles(singleList files){
   
-  file_struct* file = NULL;
-  files.cur = files.root;
-  while(files.cur != NULL){
-    file = (file_struct*)(files.cur->element);
-    printf("%s %s %s %s %d\n", file->name, file->owner, file->group, file->uploaded_at, file->downloaded_times);
-    files.cur = files.cur->next;
-  }
-}
+//   file_struct* file = NULL;
+//   files.cur = files.root;
+//   while(files.cur != NULL){
+//     file = (file_struct*)(files.cur->element);
+//     printf("%s %s %s %s %d\n", file->name, file->owner, file->group, file->uploaded_at, file->downloaded_times);
+//     files.cur = files.cur->next;
+//   }
+// }
 
-int printUsers(singleList users){
-  singleList groups;
-  user_struct* user = NULL;
-  users.cur = users.root;
-  while(users.cur != NULL){
-    user = (user_struct*)(users.cur->element);
-    printf("%s %s %d\n", user->user_name, user->password, user->status);
-    printf("group: \n");
-    groups.cur = groups.root;
-    while(groups.cur != NULL){
-      printf("-%s\n", (char*)(groups.cur->element));
-      groups.cur = groups.cur->next;
-    }
+// int printUsers(singleList users){
+//   singleList groups;
+//   user_struct* user = NULL;
+//   users.cur = users.root;
+//   while(users.cur != NULL){
+//     user = (user_struct*)(users.cur->element);
+//     printf("%s %s %d\n", user->user_name, user->password, user->status);
+//     printf("group: \n");
+//     groups.cur = groups.root;
+//     while(groups.cur != NULL){
+//       printf("-%s\n", (char*)(groups.cur->element));
+//       groups.cur = groups.cur->next;
+//     }
 
-    users.cur = users.cur->next;
-  }
-}
+//     users.cur = users.cur->next;
+//   }
+// }
 
-int saveFiles(singleList files){
+// int saveFiles(singleList files){
   
-  file_struct* file = NULL;
-  files.cur = files.root;
-  FILE *fp = fopen("./storage/file.txt", "w");
-  if(fp == NULL){
-    printf("Khong tim thay file luu tru. Luu file that bai!!\n");
-  }
+//   file_struct* file = NULL;
+//   files.cur = files.root;
+//   FILE *fp = fopen("./storage/file.txt", "w");
+//   if(fp == NULL){
+//     printf("Khong tim thay file luu tru. Luu file that bai!!\n");
+//   }
 
-  while(files.cur != NULL){
-    file = (file_struct*)(files.cur->element);
-    fprintf(fp, "%s\n%s\n%s\n%s\n%d\n", file->name, file->owner, file->group, file->uploaded_at, file->downloaded_times);
-    files.cur = files.cur->next;
-  }
-  fclose(fp);
-  printf("luu file thanh cong.\n");
+//   while(files.cur != NULL){
+//     file = (file_struct*)(files.cur->element);
+//     fprintf(fp, "%s\n%s\n%s\n%s\n%d\n", file->name, file->owner, file->group, file->uploaded_at, file->downloaded_times);
+//     files.cur = files.cur->next;
+//   }
+//   fclose(fp);
+//   printf("luu file thanh cong.\n");
 
-}
+// }
 
 int saveUsers(singleList users){
   singleList groups;
