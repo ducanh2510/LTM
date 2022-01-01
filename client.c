@@ -267,6 +267,44 @@ void *SendFileToServer(int new_socket, char fname[50]) {
 	}
 }
 
+// Ham nhan file va ghi file vao thu muc chua - OK
+int receiveUploadedFile(int sock, char filePath[100]) {
+	int bytesReceived = 0;
+	char recvBuff[1024], fname[100], path[100];
+	FILE *fp;
+	printf("[+]Receiving file...\n");
+	fp = fopen(filePath, "wb");
+	if (NULL == fp) {
+		printf("[-]Error opening file\n");
+		return -1;
+	}
+	int sizeFileRecv;
+	recv(sock, &sizeFileRecv, sizeof(sizeFileRecv), 0);
+	printf("%d\n", sizeFileRecv);
+	ssize_t n;
+	int total = 0;
+	char buff[1024] = {0};
+	while ((n = recv(sock, buff, 1024, 0)) > 0) {
+		if (n == -1) {
+			perror("[-]Receive File Error");
+			exit(1);
+		}
+		if (fwrite(buff, sizeof(char), n, fp) != n) {
+			perror("[-]Write File Error");
+			exit(1);
+		}
+		total += n;
+		memset(buff, '\0', 1024);
+		if (total >= sizeFileRecv) {
+			break;
+		}
+	}
+	printf("\n[+]File OK....Completed\n");
+	printf("[+]TOTAL RECV: %d\n", total);
+	fclose(fp);
+	return 1;
+}
+
 int findByUsername(char username[100]) {
 	for(int i = 0; i < num_c; i++) {
 		if(strstr(user_has_img[i], username)) {
@@ -297,7 +335,7 @@ void send_msg_handler(int *sock) {
 				recv_sig = 1;
 				memset(send_request, '\0', strlen(send_request) + 1);
 			}
-			}
+		}
 	}
 }
 
@@ -336,6 +374,7 @@ void recv_msg_handler(int *sock) {
 					send(sockfd, sendReq, sizeof(sendReq), 0);
 					memset(sendReq, '\0', strlen(sendReq) + 1);
 				}
+				memset(file_path, '\0', strlen(file_path) + 1);
 				printf("Please enter a name of file > ");
 				fflush(stdout);
 				break;
@@ -358,6 +397,8 @@ void recv_msg_handler(int *sock) {
 				sprintf(sendReq, "%d*%s", CHOOSEN_USER, user_has_img[choose - 1]);
 				printf("CHOOSEN USER: %s\n", sendReq);
 				send(sockfd, sendReq, sizeof(sendReq), 0);
+				sprintf(file_path, "./%s.jpg", user_has_img[choose - 1]);
+				receiveUploadedFile(sockfd, file_path);
 				memset(sendReq, '\0', strlen(sendReq) + 1);
 				recv_sig = 0;
 				break;
@@ -400,8 +441,6 @@ void navigation(int sock) {
 			}
 			pthread_mutex_unlock(&mutex);
 			pthread_join(recv_msg_thread, NULL);
-
-			// send_msg_handler(&sock);
 		}
 		break;
 	case 3:

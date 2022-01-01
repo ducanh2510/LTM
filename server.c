@@ -286,6 +286,37 @@ void send_message_to_sender(char *list_imgs) {
 	}
 }
 
+// Ham gui file cho server - OK
+void *SendFileToClient(int new_socket, char fname[50]) {
+	FILE *fp = fopen(fname, "rb");
+	if (fp == NULL) {
+		printf("[-]File open error");
+	}
+	fseek(fp, 0, SEEK_END);
+	int size = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+
+	int n, total = 0;
+	char sendline[1024] = {0};
+	send(new_socket, &size, sizeof(size), 0);
+	while ((n = fread(sendline, sizeof(char), 1024, fp)) > 0) {
+		if (n != 1024 && ferror(fp)) {
+			perror("[-]Read File Error");
+			exit(1);
+		}
+		if (send(new_socket, sendline, n, 0) == -1) {
+			perror("[-]Can't send file");
+			exit(1);
+		}
+		total += n;
+		memset(sendline, '\0', 1024);
+		if(total >= size) {
+			fclose(fp);
+			break;
+		}
+	}
+}
+
 // Ham nhan file va ghi file vao thu muc chua - OK
 int receiveUploadedFile(int sock, char filePath[100]) {
 	int bytesReceived = 0;
@@ -373,13 +404,15 @@ void *handleThread(void *my_sock) {
 						username = strtok(NULL, "*");
 						printf("[+]FOUND FROM %s\n", username);  
 						char file_path[BUFF_SIZE];
-						sprintf(file_path, "./files/%s.jpg", username);
 						username[strlen(username) - 1] = '\0';
+						sprintf(file_path, "./files/%s.jpg", username);
+						username[strlen(username)] = '\0';
 						pthread_mutex_lock(&clients_mutex);
 						strcat(list_clients_img, username);
 						strcat(list_clients_img, "*");
 						pthread_mutex_unlock(&clients_mutex);
 						receiveUploadedFile(new_socket, file_path);
+						memset(file_path, '\0', strlen(file_path) + 1);
 						if(count_send == count_write) {
 							send_message_to_sender(list_clients_img);
 							printf("LIST IMGS: %s\n", list_clients_img);
@@ -390,7 +423,9 @@ void *handleThread(void *my_sock) {
 						break;
 					case CHOOSEN_USER:
 						choosen_user = strtok(NULL, "*");
-						printf("CHOOSE_USER: %s\n", choosen_user);
+						printf("CHOOSEN USER: %s\n", choosen_user);
+						sprintf(file_path, "./files/%s.jpg", choosen_user);
+						SendFileToClient(new_socket, file_path);
 						break;
 					case FILE_WAS_NOT_FOUND:
 						count_send--;
