@@ -42,6 +42,19 @@ void queue_add(client_t *cl) {
 	pthread_mutex_unlock(&clients_mutex);
 }
 
+// Delete client da dang xuat khoi mang - OK
+void queue_delete(char *username) {
+	pthread_mutex_lock(&clients_mutex);
+	for (int i = 0; i < MAX_CLIENTS; ++i) {
+		if (clients[i] && strcmp(clients[i]->name, username) == 0) {
+			clients[i] = NULL;
+			num_client--;
+			break;
+		}
+	}
+	pthread_mutex_unlock(&clients_mutex);
+}
+
 // In ra danh sach client dang ket noi - OK
 void print_queue() {
 	printf("[+]List clients: \n");
@@ -236,14 +249,41 @@ void send_message_to_sender(char *list_imgs) {
 	}
 }
 
+// Gui code khong tim thay anh - OK
+void send_code_img_not_found(){ 
+	for (int i = 0; i < num_client; i++) {
+		if (strcmp(main_name, clients[i]->name) == 0) {
+			sendCode(clients[i]->sockfd, NO_IMG_FOUND);
+			break;
+		}
+	}
+}
+
 // Ham gui file cho server - OK
 void *SendFileToClient(int new_socket, char fname[50]) {
 	SendFile(new_socket, fname);
 }
 
+// Nhan file gui len tu client - OK
 void receiveUploadedFileServer(int sock, char filePath[100]){
 	if(receiveUploadedFile(sock, filePath)) count_write++;
 	else return;
+}
+
+// Xoa file anh trong thu muc tam thoi - OK
+void deleteImgsFile(char list_clients_img_copy[1024]) {
+	char *deleteName;
+	deleteName = strtok(list_clients_img_copy, "*");
+	while(deleteName != NULL) {
+		char path[1024];
+		sprintf(path, "./files/%s.jpg", deleteName);
+		if(remove(path) == 0){
+			printf("[+] DELETED FILE SUCCESS: %s\n", path);
+		}else{
+			printf("[+] DELETED FILE FAILED: %s\n", path);
+		}
+		deleteName = strtok(NULL, "*");
+	}
 }
 
 // Ham xu li luong - OK
@@ -293,7 +333,6 @@ void *handleThread(void *my_sock) {
 						username = strtok(NULL, "*");
 						printf("[+]FOUND FROM %s\n", username);  
 						char file_path[BUFF_SIZE];
-						// username[strlen(username)-1] = '\0';
 						str_trim_lf(username, strlen(username));
 						sprintf(file_path, "./files/%s.jpg", username);
 						username[strlen(username)] = '\0';
@@ -312,30 +351,33 @@ void *handleThread(void *my_sock) {
 						choosen_user = strtok(NULL, "*");
 						sprintf(file_path, "./files/%s.jpg", choosen_user);
 						SendFileToClient(new_socket, file_path);
+						memset(main_name, '\0', strlen(main_name) + 1);
 						char list_clients_img_copy[1024];
 						strcpy(list_clients_img_copy, list_clients_img);
-						char *deleteName;
-						deleteName = strtok(list_clients_img_copy, "*");
-						while(deleteName != NULL) {
-							char path[1024];
-							sprintf(path, "./files/%s.jpg", deleteName);
-							if(remove(path) == 0){
-								printf("[+] DELETED FILE SUCCESS: %s\n", path);
-							}else{
-								printf("[+] DELETED FILE FAILED: %s\n", path);
-							}
-							deleteName = strtok(NULL, "*");
-						}
+						deleteImgsFile(list_clients_img_copy);
 						memset(list_clients_img, '\0', strlen(list_clients_img) + 1);
+						memset(list_clients_img_copy, '\0', strlen(list_clients_img_copy) + 1);
 						printf("===============COMPLETE===============\n");
 						break;
 					case FILE_WAS_NOT_FOUND:
 						count_send--;
+						if(count_send == 0) {
+							send_code_img_not_found();
+						}
+						break;
+					case NOT_CHOOSEN:
+						memset(main_name, '\0', strlen(main_name) + 1);
+						deleteImgsFile(list_clients_img);
+						memset(list_clients_img, '\0', strlen(list_clients_img) + 1);
 						break;
 					case LOGOUT_REQUEST: // request code: 14
 						printf("[+]LOGOUT_REQUEST\n");
-						loginUser = NULL;
+						username = strtok(NULL, "*");
+						printf("Username: %s\n", username);
+						queue_delete(username);
 						sendCode(new_socket, LOGOUT_SUCCESS);
+						memset(username, '\0', strlen(username) + 1);
+						loginUser = NULL;
 						break;
 					default:
 						break;

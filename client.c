@@ -13,6 +13,7 @@ int num_c = 0;
 int recv_sig = 0;
 char user_has_img[10][BUFF_SIZE];
 char find_file_name[BUFF_SIZE];
+int isLogin = 0;
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER; 
@@ -59,9 +60,10 @@ int main(int argc, char *argv[]) {
 
 	// ============================Start to communicate with Server======================
 	// ==================================================================================
+	
 	do {
 		navigation(sock);
-	} while (1);
+	}while(1);
 
 	close(sock);
 	return 0;
@@ -177,6 +179,7 @@ int signIn(int sock) {
 		printf("[-]Login failed!!\n");
 		return 0;
 	}else {
+		isLogin = 1;
 		strcpy(user, username);
 		return 1;
 	}
@@ -187,17 +190,21 @@ void send_msg_handler(int *sock) {
 	int sockfd = *sock;
 	char buffer[100];
 	char send_request[REQUEST_SIZE];
+	printf("Please enter a name of file > ");
+	fflush(stdout);
 	while (1) {
 		if(recv_sig == 0) {
-			printf("Please enter a name of file > ");
-			fflush(stdout);
 			fgets(buffer, 100, stdin);
 			str_trim_lf(buffer, 100);
 			strcpy(find_file_name, buffer);
 			str_trim_lf(user, 100);
 			
 			if(strstr(buffer, "exit")) {
-				break;
+				sprintf(send_request, "%d*%s", LOGOUT_REQUEST, user);
+				sendWithCheck(sockfd, send_request, strlen(send_request) + 1);
+				bzero(buffer, 100);
+				memset(send_request, '\0', strlen(send_request) + 1);
+				return;
 			}
 			if(strlen(buffer) > 0) {
 				sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
@@ -256,24 +263,42 @@ void recv_msg_handler(int *sock) {
 					num_c++;
 					list_imgs = strtok(NULL, "*");
 				}
-				printf("Danh sach client co anh\n");
+				printf("List of clients with images: \n");
+				printf("0.\tI don't want to download images\n");
 				for(int j = 0; j < num_c; j++) {
 					printf("%d\t%s\n", j + 1, user_has_img[j]);
 				} 
-				printf("Moi chon anh tai ve:\t");
+				printf("PLEASE choose a images to download:\t");
 				fflush(stdout);
 				scanf("%d", &choose);
 				fflush(stdout);
-				sprintf(sendReq, "%d*%s", CHOOSEN_USER, user_has_img[choose - 1]);
-				send(sockfd, sendReq, sizeof(sendReq), 0);
-				sprintf(file_path, "./%s", find_file_name);
-				receiveUploadedFile(sockfd, file_path);
-				memset(sendReq, '\0', strlen(sendReq) + 1);
+				if(choose != 0) {
+					sprintf(sendReq, "%d*%s", CHOOSEN_USER, user_has_img[choose - 1]);
+					send(sockfd, sendReq, sizeof(sendReq), 0);
+					sprintf(file_path, "./%s", find_file_name);
+					receiveUploadedFile(sockfd, file_path);
+					memset(sendReq, '\0', strlen(sendReq) + 1);
+				}else {
+					sendCode(sockfd, NOT_CHOOSEN);
+				}
 				recv_sig = 0;
 				num_c = 0;
 				memset(find_file_name, '\0', sizeof(find_file_name));
 				memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
+				printf("Please enter a name of file > ");
+				fflush(stdout);
 				break;
+			case NO_IMG_FOUND:
+				recv_sig = 0;
+				printf("No images found!!!\n"); 
+				memset(find_file_name, '\0', sizeof(find_file_name));
+				memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
+				printf("Please enter a name of file > ");
+				fflush(stdout);
+				break;
+			case LOGOUT_SUCCESS: 
+				isLogin = 0;
+				return;
 			default:
 				break;
 			}
@@ -287,22 +312,22 @@ void navigation(int sock) {
 	int opt1, opt2, opt3;
 	char buffer[100];
 	opt1 = menu1();
-
 	switch (opt1) {
 	case 1: // Dang ki
 		signUp(sock);
 		break;
 	case 2: // Dang nhap
 		if (signIn(sock) == 1) {
+			pthread_t recv_msg_thread;
+			pthread_t send_msg_thread;
 
 			printf("=== WELCOME TO THE SHARED IMAGE APPLICATION ===\n");
 			
-			pthread_t recv_msg_thread;
 			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
 				printf("[-]ERROR: pthread\n");
 				exit(EXIT_FAILURE);
 			}
-			pthread_t send_msg_thread;
+			
 			if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
 				printf("[-]ERROR: pthread\n");
 				exit(EXIT_FAILURE);
