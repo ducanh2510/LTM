@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <termios.h>
+#include "colorCode.h"
 // #include <pthread.h>
 // #include "./communication_code.h"
 
@@ -27,7 +28,7 @@ ssize_t getpasswd (char **pw, size_t sz, int mask, FILE *fp);
 
 // In ra thong tin thong diep request - OK
 void printRequest(char *request){
-	printf("[+]REQUEST: %s\n", request);
+	printf(FG_GREEN "[+]REQUEST: %s\n" NORMAL, request);
 }
 
 //Gui thong diep, khong duoc thong bao loi - OK
@@ -90,7 +91,7 @@ int receiveUploadedFile(int sock, char filePath[100]) {
 	int bytesReceived = 0;
 	char recvBuff[1024], fname[100], path[100];
 	FILE *fp;
-	printf("[+]Receiving file...\n");
+	printf(FG_GREEN "[+]Receiving file..." NORMAL "\n");
 	fp = fopen(filePath, "wb");
 	if (NULL == fp) {
 		printf("[-]Error opening file\n");
@@ -116,8 +117,8 @@ int receiveUploadedFile(int sock, char filePath[100]) {
 			break;
 		}
 	}
-	printf("[+]File OK....Completed\n");
-	printf("[+]TOTAL RECV: %d\n", total);
+	printf(FG_GREEN "[+]File OK....Completed" NORMAL "\n");
+	printf(FG_GREEN "[+]TOTAL RECV: %d\n" NORMAL, total);
 	fclose(fp);
 	return 1;
 }

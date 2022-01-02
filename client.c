@@ -70,29 +70,32 @@ int main(int argc, char *argv[]) {
 	close(sock);
 	return 0;
 }
-
+void clearScreen()
+{
+  const char *CLEAR_SCREEN_ANSI = "\e[1;1H\e[2J";
+  write(STDOUT_FILENO, CLEAR_SCREEN_ANSI, 12);
+}
 // Menu dang nhap hoac dang ky - OK
 int menu1() {
 	int choice, catch;
 	char err[10];
 	printf("\n\n");
-	printf( "====================UPLOAD FILE IMAGE SHARING===================\n");
-	printf(BG_CYAN "1. Sign up" FG_MAGENTA ITALIC "\n");
-	printf("2. Sign in\n");
-	printf("3. Exit\n");
-	printf(FG_YELLOW "==========================================================" NORMAL "\n");
-	printf("=> Enter your choice: ");
+	printf( FG_YELLOW "====================UPLOAD FILE IMAGE SHARING==================="  "\n");
+	printf(FG_MAGENTA ITALIC  "1. Sign up"  "\n"NORMAL);
+	printf(FG_MAGENTA ITALIC "2. Sign in\n" NORMAL);
+	printf(FG_MAGENTA ITALIC "3. Exit\n"NORMAL );
+	printf(FG_YELLOW "================================================================" "\n");
+	printf(FG_CYAN "=> Enter your choice: " );
 	catch = scanf("%d", &choice);
 
 	printf("\n\n");
-
 	if (catch > 0)
 		return choice;
 	else
 	{
 		fgets(err, 10, stdin);
 		err[strlen(err) - 1] = '\0';
-		printf("[-]\"%s\" is not allowed!\n", err);
+		printf(FG_RED "[-]\"%s\" is not allowed!\n" , err);
 		return -1;
 	}
 }
@@ -104,15 +107,15 @@ void signUp(int sock) {
     FILE *fp = stdin;
 	sendCode(sock, REGISTER_REQUEST);
 	readWithCheck(sock, buff, BUFF_SIZE);
-	printf("========================= SIGNUP ========================\n");
+	printf(FG_YELLOW "============================== SIGNUP =============================\n");
 
 	clearBuff();
 	while (1) {
-		printf("Enter username: ");
+		printf(FG_CYAN "Enter username: ");
 		fgets(username, 50, stdin);
 		while (strlen(username) <= 0 || username[0] == '\n') {
-			printf("Username is empty!!!!!!!\n");
-			printf("Enter username: ");
+			printf( FG_RED "Username is empty!!!!!!!\n" );
+			printf(FG_CYAN "Enter username: ");
 			scanf("%s", username);
 			str_trim_lf(username, 50);
 		}
@@ -120,18 +123,18 @@ void signUp(int sock) {
 
 		readWithCheck(sock, buff, BUFF_SIZE);
 		if (atoi(buff) == EXISTENCE_USERNAME) {
-			printf("Username is not available!!\n");
+			printf(FG_RED "Username is not available!!\n" );
 		}else {
 			break;
 		}
 	};
 
-	printf("Enter password: ");
+	printf(FG_CYAN "Enter password: " );
 	ssize_t nchr = getpasswd (&p, MAXPW, '*', fp);
 	printf("\n");
 	while (strlen(password) <= 0 || password[0] == '\n') {
-		printf("Password is empty!!!!!!!!!\n");
-		printf("Enter password: ");
+		printf(FG_RED "Password is empty!!!!!!!!!\n" );
+		printf(FG_CYAN "Enter password: " );
 		getpasswd (&p, MAXPW, '*', fp);
 		printf("\n");
 	}
@@ -139,7 +142,7 @@ void signUp(int sock) {
 
 	readWithCheck(sock, buff, BUFF_SIZE);
 	if (atoi(buff) == REGISTER_SUCCESS) {
-		printf("[+]Dang ki tai khoan thanh cong!!!\n");
+		printf(FG_GREEN "\n[+]Dang ki tai khoan thanh cong!!!\n" );
 	}
 }
 
@@ -150,16 +153,16 @@ int signIn(int sock) {
     FILE *fp = stdin;
 	sendCode(sock, LOGIN_REQUEST);
 	readWithCheck(sock, buff, BUFF_SIZE);
-	printf("========================= SIGNIN ========================\n");
+	printf(FG_YELLOW "============================ SIGNIN ============================\n");
 
 	clearBuff();
 	while (1){
-		printf("Enter username: ");
+		printf( FG_CYAN "Enter username: " );
 		fgets(username, 50, stdin);
 		while (strlen(username) <= 0 || username[0] == '\n'){
 			username[0] = '\0';
 			printf("Username is empty!!!!\n");
-			printf("Enter username: ");
+			printf( FG_CYAN "Enter username: " );
 			fgets(username, 50, stdin);
 		}
 
@@ -167,28 +170,29 @@ int signIn(int sock) {
 
 		readWithCheck(sock, buff, BUFF_SIZE);
 		if (atoi(buff) == NON_EXISTENCE_USERNAME) {
-			printf("Username is not available!!\n");
+			printf(FG_RED "Username is not available!!\n" );
 		}else {
 			break;
 		}
 	}
 
-	printf("Enter password: ");
+	printf(FG_CYAN "Enter password: " );
 	ssize_t nchr = getpasswd (&p, MAXPW, '*', fp);
 	printf("\n");
 	while (strlen(p) <= 0 || p[0] == '\n'){
-		printf("Password is empty!!!!!\n");
-		printf("Enter password: ");
+		printf(FG_RED"Password is empty!!!!!\n");
+		printf(FG_CYAN "Enter password: " );
 		getpasswd (&p, MAXPW, '*', fp);
 		printf("\n");
 	}
 	sendWithCheck(sock, p, sizeof(p) + 1);
 	readWithCheck(sock, buff, BUFF_SIZE);
 	if (atoi(buff) != LOGIN_SUCCESS) {
-		printf("[-]Login failed!!\n");
+		printf(FG_RED"[-]Login failed!!\n" );
 		return 0;
 	}else {
 		strcpy(user, username);
+		clearScreen();
 		return 1;
 	}
 }
@@ -198,7 +202,7 @@ void send_msg_handler(int *sock) {
 	int sockfd = *sock;
 	char buffer[100];
 	char send_request[REQUEST_SIZE];
-	printf("Please enter a name of file > ");
+	printf(FG_CYAN "Please enter a name of file > " );
 	fflush(stdout);
 	while (1) {
 		if(recv_sig == 0) {
@@ -236,32 +240,32 @@ void recv_msg_handler(int *sock) {
 	while (1) {
 		char message[BUFF_SIZE] = {}; 
 		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
-		printf("\n[+}FIND_IMG_IN_USERS : %s \n", recvReq);
 		char *opcode;
 		opcode = strtok(recvReq, "*");
 		if (receive > 0) {
 			REQUEST = atoi(opcode);
 			switch (REQUEST) {
 			case FIND_IMG_IN_USERS:
+				printf(FG_GREEN "\n[+}FIND_IMG_IN_USERS\n");
 				fileName = strtok(NULL, "*");
 				char file_path[200];
 				strcpy(file_path, "./client_file/");
 				strcat(file_path, fileName);
-				printf("\n[+]FILENAME_TO_SEARCH : %s \n", fileName);
+				printf(FG_GREEN"[+]FILENAME_TO_SEARCH : %s \n"NORMAL, fileName);
 				// neu tim thay:
 				if(access(file_path, F_OK) != -1) {
 					sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
 					send(sockfd, sendReq, sizeof(sendReq), 0);
-					printf("[+]FILE_WAS_FOUND\n");
+					printf(FG_GREEN"[+]FILE_WAS_FOUND\n"NORMAL);
 					SendFileToServer(sockfd, file_path);
-					printf("[+]SEND FILE DONE\n");
+					printf(FG_GREEN"[+]SEND FILE DONE\n"NORMAL);
 				}else {
 					sprintf(sendReq, "%d*%s", FILE_WAS_NOT_FOUND, user);
 					send(sockfd, sendReq, sizeof(sendReq), 0);
 					memset(sendReq, '\0', strlen(sendReq) + 1);
 				}
 				memset(file_path, '\0', strlen(file_path) + 1);
-				printf("Please enter a name of file > ");
+				printf(FG_CYAN "Please enter a name of file > " NORMAL);
 				fflush(stdout);
 				break;
 			case SEND_IMGS_TO_USER:
@@ -271,12 +275,12 @@ void recv_msg_handler(int *sock) {
 					num_c++;
 					list_imgs = strtok(NULL, "*");
 				}
-				printf("List of clients with images: \n");
-				printf("0.\tI don't want to download images\n");
+				printf(FG_CYAN "List of clients with images: \n"NORMAL);
+				printf(FG_MAGENTA ITALIC"0.\tI don't want to download images\n"NORMAL);
 				for(int j = 0; j < num_c; j++) {
-					printf("%d\t%s\n", j + 1, user_has_img[j]);
+					printf(FG_MAGENTA ITALIC "%d.\t%s\n"NORMAL, j + 1, user_has_img[j]);
 				} 
-				printf("PLEASE choose a images to download:\t");
+				printf(FG_CYAN"PLEASE choose a images to download:\t");
 				fflush(stdout);
 				scanf("%d", &choose);
 				fflush(stdout);
@@ -293,15 +297,15 @@ void recv_msg_handler(int *sock) {
 				num_c = 0;
 				memset(find_file_name, '\0', sizeof(find_file_name));
 				memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
-				printf("Please enter a name of file > ");
+				printf(FG_CYAN "Please enter a name of file > " );
 				fflush(stdout);
 				break;
 			case NO_IMG_FOUND:
 				recv_sig = 0;
-				printf("No images found!!!\n"); 
+				printf(FG_RED "No images found!!!\n" ); 
 				memset(find_file_name, '\0', sizeof(find_file_name));
 				memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
-				printf("Please enter a name of file > ");
+				printf(FG_CYAN "Please enter a name of file > " );
 				fflush(stdout);
 				break;
 			case LOGOUT_SUCCESS: 
@@ -324,6 +328,7 @@ void navigation(int sock) {
 	int opt1, opt2, opt3;
 	char buffer[100];
 	opt1 = menu1();
+	
 	switch (opt1) {
 	case 1: // Dang ki
 		signUp(sock);
@@ -333,7 +338,7 @@ void navigation(int sock) {
 			pthread_t recv_msg_thread;
 			pthread_t send_msg_thread;
 
-			printf("=== WELCOME TO THE SHARED IMAGE APPLICATION ===\n");
+			printf(FG_YELLOW "=========== WELCOME TO THE SHARED IMAGE APPLICATION ============\n" );
 			
 			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
 				printf("[-]ERROR: pthread\n");

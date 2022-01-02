@@ -171,7 +171,7 @@ void signUp(int sock, singleList *users) {
 	}
 
 	readWithCheck(sock, buff, BUFF_SIZE);
-	buff[strlen(buff) - 1] = '\0';
+	buff[strlen(buff)] = '\0';
 	if (buff[strlen(buff) - 2] == '\n') {
 		buff[strlen(buff) - 2] = '\0';
 	}

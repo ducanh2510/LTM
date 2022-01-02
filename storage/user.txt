@@ -19,6 +19,3 @@ luuducanh
 bkhust
 1234
 1
-noel
-123
-1
