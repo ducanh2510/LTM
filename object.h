@@ -20,33 +20,9 @@ typedef struct user
 	int status;
 }user_struct;
 
-typedef struct simple_user
+typedef struct
 {
-	char user_name[50];
-}simple_user_struct;
-
-typedef struct file {
-    char name[50];
-    char owner[50];
-    char group[50];
-    char uploaded_at[50];
-    int downloaded_times;
-}file_struct;
-
-typedef struct simple_file {
-    char file_name[50];
-}simple_file_struct;
-
-typedef struct simple_group {
-    char group_name[50];
-}simple_group_struct;
-
-
-typedef struct group{
-    char group_name[50];
-    char owner[50];
-    singleList members;
-    singleList files;
-    int number_of_members;
-    int number_of_files;
-}group_struct;
+	int sockfd;
+	int uid;
+	char name[100];
+} client_t;

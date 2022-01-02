@@ -12,12 +12,9 @@
 #include <sys/stat.h>
 #include "communication_code.h"
 #include "linked_list.h"
+#include "transfer.h"
 #include <time.h>
 #include <pthread.h>
-
-#define BUFF_SIZE 100
-#define MAX_CLIENTS 10
-#define REQUEST_SIZE 1024
 
 int count_send = 0;
 int count_write = 0;
@@ -25,22 +22,12 @@ char list_clients_img[REQUEST_SIZE] = "";
 char main_name[BUFF_SIZE] = "";
 
 singleList groups, files, users;
-typedef struct
-{
-	int sockfd;
-	int uid;
-	char name[100];
-} client_t;
 
 client_t *clients[MAX_CLIENTS];
 
 int num_client = 0;
 
 pthread_mutex_t clients_mutex = PTHREAD_MUTEX_INITIALIZER;
-
-void printRequest(char *request) {
-	printf("[+]REQUEST: %s\n", request);
-}
 
 // Them cac client da dang nhap thanh cong vao mang - OK
 void queue_add(client_t *cl) {
@@ -60,44 +47,6 @@ void print_queue() {
 	printf("[+]List clients: \n");
 	for (int i = 0; i < num_client; i++) {
 		printf("%s\n", clients[i]->name);
-	}
-}
-
-// Xu li dau enter - OK
-void str_trim_lf(char *arr, int length) {
-	int i;
-	for (i = 0; i < length; i++) {
-		if (arr[i] == '\n') {
-			arr[i] = '\0';
-			break;
-		}
-	}
-}
-// ========================================
-
-// Ham gui thong diep cho client va check - OK
-void sendWithCheck(int sock, char buff[BUFF_SIZE], int length) {
-	int sendByte = 0;
-	sendByte = send(sock, buff, length, 0);
-	if (sendByte > 0) {
-	}else {
-		close(sock);
-		pthread_exit(0);
-	}
-}
-
-// Ham nhan thong diep tu client va check - OK
-int readWithCheck(int sock, char buff[BUFF_SIZE], int length) {
-	int recvByte = 0;
-	recvByte = read(sock, buff, length);
-	if (recvByte > 0)
-	{
-		return recvByte;
-	}
-	else
-	{
-		close(sock);
-		pthread_exit(0);
 	}
 }
 
@@ -135,14 +84,6 @@ void readUserFile(singleList *users) {
 		insertEnd(users, user);
 	}
 	fclose(f);
-}
-
-// Gui tin hieu CODE tuong ung cho client - OK
-void sendCode(int sock, int code) {
-	char codeStr[10];
-	sprintf(codeStr, "%d", code);
-	printf("-->Response: %s\n", codeStr);
-	sendWithCheck(sock, codeStr, strlen(codeStr) + 1);
 }
 
 // Kiem tra xem username da ton tai chua - OK
@@ -207,7 +148,7 @@ void signUp(int sock, singleList *users) {
 		if (username[strlen(username) - 2] == '\n') {
 			username[strlen(username) - 2] = '\0';
 		}
-		printf("username: \'%s\'\n", username);
+		printf("USERNAME: \'%s\'\n", username);
 		if (checkExistence(1, *users, username) == 1) {
 			sendCode(sock, EXISTENCE_USERNAME);
 		}else {
@@ -221,7 +162,7 @@ void signUp(int sock, singleList *users) {
 	if (buff[strlen(buff) - 2] == '\n') {
 		buff[strlen(buff) - 2] = '\0';
 	}
-	printf("password: %s\n", buff);
+	printf("PASSWORD: %s\n", buff);
 
 	strcpy(password, buff);
 	user_struct *user = (user_struct *)malloc(sizeof(user_struct));
@@ -240,7 +181,7 @@ int signIn(int sock, singleList users, user_struct **loginUser) {
 	while (1) {
 		readWithCheck(sock, buff, BUFF_SIZE);
 		buff[strlen(buff) - 1] = '\0';
-		printf("username: %s\n", buff);
+		printf("USERNAME: %s\n", buff);
 
 		strcpy(username, buff);
 		if (checkExistence(1, users, username) == 1) {
@@ -252,7 +193,7 @@ int signIn(int sock, singleList users, user_struct **loginUser) {
 	}
 	readWithCheck(sock, buff, BUFF_SIZE);
 	buff[strlen(buff) - 1] = '\0';
-	printf("password: %s\n", buff);
+	printf("PASSWORD: %s\n", buff);
 	strcpy(password, buff);
 
 	*loginUser = (user_struct *)(findByName(1, users, username));
@@ -275,21 +216,20 @@ void send_message(char name[100], char *nameFile) {
 	for (int i = 0; i < num_client; i++) {
 		if (strcmp(name, clients[i]->name) != 0) {
 			sprintf(send_request, "%d*%s", FIND_IMG_IN_USERS, nameFile);
-			printf("->send to %s - %s - %s - %s \n", clients[i]->name, name, nameFile, send_request);
+			printf("->SEND TO %s - RECV FROM %s - %s - %s \n", clients[i]->name, name, nameFile, send_request);
 			send(clients[i]->sockfd, send_request, sizeof(send_request), 0);
 			memset(send_request, '\0', strlen(send_request) + 1);
 		}
 	}
 }
 
-// Gui list danh sach anh cho nguoi yeu cau tim kiem
+// Gui list danh sach anh cho nguoi yeu cau tim kiem - OK
 void send_message_to_sender(char *list_imgs) {
 	char send_request[REQUEST_SIZE];
 	for (int i = 0; i < num_client; i++) {
 		if (strcmp(main_name, clients[i]->name) == 0) {
 			sprintf(send_request, "%d*%s", SEND_IMGS_TO_USER, list_imgs);
 			send(clients[i]->sockfd, send_request, sizeof(send_request), 0);
-			printf("message Send: %s\n", send_request);
 			memset(send_request, '\0', strlen(send_request) + 1);
 			break;
 		}
@@ -298,75 +238,15 @@ void send_message_to_sender(char *list_imgs) {
 
 // Ham gui file cho server - OK
 void *SendFileToClient(int new_socket, char fname[50]) {
-	FILE *fp = fopen(fname, "rb");
-	if (fp == NULL) {
-		printf("[-]File open error");
-	}
-	fseek(fp, 0, SEEK_END);
-	int size = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
-
-	int n, total = 0;
-	char sendline[1024] = {0};
-	send(new_socket, &size, sizeof(size), 0);
-	while ((n = fread(sendline, sizeof(char), 1024, fp)) > 0) {
-		if (n != 1024 && ferror(fp)) {
-			perror("[-]Read File Error");
-			exit(1);
-		}
-		if (send(new_socket, sendline, n, 0) == -1) {
-			perror("[-]Can't send file");
-			exit(1);
-		}
-		total += n;
-		memset(sendline, '\0', 1024);
-		if(total >= size) {
-			fclose(fp);
-			break;
-		}
-	}
+	SendFile(new_socket, fname);
 }
 
-// Ham nhan file va ghi file vao thu muc chua - OK
-int receiveUploadedFile(int sock, char filePath[100]) {
-	int bytesReceived = 0;
-	char recvBuff[1024], fname[100], path[100];
-	FILE *fp;
-	printf("[+]Receiving file...\n");
-	fp = fopen(filePath, "wb");
-	if (NULL == fp) {
-		printf("[-]Error opening file\n");
-		return -1;
-	}
-	int sizeFileRecv;
-	recv(sock, &sizeFileRecv, sizeof(sizeFileRecv), 0);
-	printf("%d\n", sizeFileRecv);
-	ssize_t n;
-	int total = 0;
-	char buff[1024] = {0};
-	while ((n = recv(sock, buff, 1024, 0)) > 0) {
-		if (n == -1) {
-			perror("[-]Receive File Error");
-			exit(1);
-		}
-		if (fwrite(buff, sizeof(char), n, fp) != n) {
-			perror("[-]Write File Error");
-			exit(1);
-		}
-		total += n;
-		memset(buff, '\0', 1024);
-		if (total >= sizeFileRecv) {
-			break;
-		}
-	}
-	printf("\n[+]File OK....Completed\n");
-	printf("[+]TOTAL RECV: %d\n", total);
-	fclose(fp);
-	count_write++;
-	return 1;
+void receiveUploadedFileServer(int sock, char filePath[100]){
+	if(receiveUploadedFile(sock, filePath)) count_write++;
+	else return;
 }
 
-// Ham xu li luong - not check
+// Ham xu li luong - OK
 void *handleThread(void *my_sock) {
 	int new_socket = *((int *)my_sock);
 	int REQUEST;
@@ -401,9 +281,8 @@ void *handleThread(void *my_sock) {
 					case FIND_IMG_REQUEST:
 						username = strtok(NULL, "*");
 						strcpy(main_name, username);
-						printf("user name: %s\n", username);
+						printf("USERNAME: %s\n", username);
 						filename = strtok(NULL, "*");
-						printf("file name: %s\n", filename);
 						// gui yeu cau toi cac may con lai
 						send_message(username, filename);
 						count_send = num_client - 1;
@@ -414,26 +293,23 @@ void *handleThread(void *my_sock) {
 						username = strtok(NULL, "*");
 						printf("[+]FOUND FROM %s\n", username);  
 						char file_path[BUFF_SIZE];
-						str_trim_lf(username, 100);
+						// username[strlen(username)-1] = '\0';
+						str_trim_lf(username, strlen(username));
 						sprintf(file_path, "./files/%s.jpg", username);
 						username[strlen(username)] = '\0';
 						pthread_mutex_lock(&clients_mutex);
 						strcat(list_clients_img, username);
 						strcat(list_clients_img, "*");
 						pthread_mutex_unlock(&clients_mutex);
-						receiveUploadedFile(new_socket, file_path);
+						receiveUploadedFileServer(new_socket, file_path);
 						memset(file_path, '\0', strlen(file_path) + 1);
 						if(count_send == count_write) {
 							send_message_to_sender(list_clients_img);
-							printf("LIST IMGS: %s\n", list_clients_img);
-							memset(main_name, '\0', strlen(main_name) + 1);
 							count_send = count_write = 0;
-							memset(username, '\0', strlen(username) + 1);
 						}
 						break;
 					case CHOOSEN_USER:
 						choosen_user = strtok(NULL, "*");
-						printf("CHOOSEN USER: %s\n", choosen_user);
 						sprintf(file_path, "./files/%s.jpg", choosen_user);
 						SendFileToClient(new_socket, file_path);
 						char list_clients_img_copy[1024];
@@ -451,6 +327,7 @@ void *handleThread(void *my_sock) {
 							deleteName = strtok(NULL, "*");
 						}
 						memset(list_clients_img, '\0', strlen(list_clients_img) + 1);
+						printf("===============COMPLETE===============\n");
 						break;
 					case FILE_WAS_NOT_FOUND:
 						count_send--;
@@ -488,13 +365,13 @@ int main(int argc, char *argv[]) {
 
 	// Creating socket file descriptor
 	if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
-		perror("socket failed");
+		perror("[-]Socket failed");
 		exit(EXIT_FAILURE);
 	}
 
 	// Forcefully attaching socket to the port
 	if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-		perror("setsockopt");
+		perror("[-]Setsockopt");
 		exit(EXIT_FAILURE);
 	}
 	address.sin_family = AF_INET;
@@ -503,11 +380,11 @@ int main(int argc, char *argv[]) {
 
 	// Forcefully attaching socket to the port
 	if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-		perror("bind failed");
+		perror("[-]Bind failed");
 		exit(EXIT_FAILURE);
 	}
 	if (listen(server_fd, 3) < 0) {
-		perror("listen");
+		perror("[-]Listen");
 		exit(EXIT_FAILURE);
 	}
 
@@ -518,7 +395,7 @@ int main(int argc, char *argv[]) {
 		pthread_t tid;
 
 		if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0) {
-			perror("accept");
+			perror("[-]Accept");
 			exit(EXIT_FAILURE);
 		}
 		printf("New request from sockfd = %d.\n", new_socket);
