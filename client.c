@@ -325,13 +325,13 @@ void send_msg_handler(int *sock) {
 			fgets(buffer, 100, stdin);
 			str_trim_lf(buffer, 100);
 			str_trim_lf(user, 100);
-			recv_sig = 1;
 			if(strstr(buffer, "exit")) {
 				break;
 			}
 			if(strlen(buffer) > 0) {
 				sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
 				sendWithCheck(sockfd, send_request, strlen(send_request) + 1);
+				recv_sig = 1;
 				bzero(buffer, 100);
 				memset(send_request, '\0', strlen(send_request) + 1);
 			}
@@ -425,14 +425,14 @@ void navigation(int sock) {
 		if (signIn(sock) == 1) {
 
 			printf("=== WELCOME TO THE SHARED IMAGE APPLICATION ===\n");
-			pthread_t send_msg_thread;
-			if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
+			
+			pthread_t recv_msg_thread;
+			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
 				printf("[-]ERROR: pthread\n");
 				exit(EXIT_FAILURE);
 			}
-
-			pthread_t recv_msg_thread;
-			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
+			pthread_t send_msg_thread;
+			if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
 				printf("[-]ERROR: pthread\n");
 				exit(EXIT_FAILURE);
 			}
