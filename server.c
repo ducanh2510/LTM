@@ -205,7 +205,7 @@ int signIn(int sock, singleList users, user_struct **loginUser) {
 		}
 	}
 	readWithCheck(sock, buff, BUFF_SIZE);
-	buff[strlen(buff) - 1] = '\0';
+	buff[strlen(buff)] = '\0';
 	printf("PASSWORD: %s\n", buff);
 	strcpy(password, buff);
 
@@ -321,7 +321,6 @@ void *handleThread(void *my_sock) {
 					case FIND_IMG_REQUEST:
 						username = strtok(NULL, "*");
 						strcpy(main_name, username);
-						printf("USERNAME: %s\n", username);
 						filename = strtok(NULL, "*");
 						// gui yeu cau toi cac may con lai
 						send_message(username, filename);
@@ -373,7 +372,6 @@ void *handleThread(void *my_sock) {
 					case LOGOUT_REQUEST: // request code: 14
 						printf("[+]LOGOUT_REQUEST\n");
 						username = strtok(NULL, "*");
-						printf("Username: %s\n", username);
 						queue_delete(username);
 						sendCode(new_socket, LOGOUT_SUCCESS);
 						memset(username, '\0', strlen(username) + 1);

@@ -7,13 +7,15 @@
 #include <pthread.h>
 #include "./communication_code.h"
 #include "transfer.h"
+#include "colorCode.h"
+
+#define MAXPW 50
 
 char user[100] = "";
 int num_c = 0;
 int recv_sig = 0;
 char user_has_img[10][BUFF_SIZE];
 char find_file_name[BUFF_SIZE];
-int isLogin = 0;
 
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t cond = PTHREAD_COND_INITIALIZER; 
@@ -74,11 +76,11 @@ int menu1() {
 	int choice, catch;
 	char err[10];
 	printf("\n\n");
-	printf("====================UPLOAD FILE IMAGE SHARING===================\n");
-	printf("1. Sign up\n");
+	printf( "====================UPLOAD FILE IMAGE SHARING===================\n");
+	printf(BG_CYAN "1. Sign up" FG_MAGENTA ITALIC "\n");
 	printf("2. Sign in\n");
 	printf("3. Exit\n");
-	printf("==========================================================\n");
+	printf(FG_YELLOW "==========================================================" NORMAL "\n");
 	printf("=> Enter your choice: ");
 	catch = scanf("%d", &choice);
 
@@ -98,7 +100,8 @@ int menu1() {
 // Chuc nang dang ky - OK
 void signUp(int sock) {
 	char username[50], password[50], buff[BUFF_SIZE];
-
+	char *p = password;
+    FILE *fp = stdin;
 	sendCode(sock, REGISTER_REQUEST);
 	readWithCheck(sock, buff, BUFF_SIZE);
 	printf("========================= SIGNUP ========================\n");
@@ -124,11 +127,13 @@ void signUp(int sock) {
 	};
 
 	printf("Enter password: ");
-	fgets(password, 50, stdin);
+	ssize_t nchr = getpasswd (&p, MAXPW, '*', fp);
+	printf("\n");
 	while (strlen(password) <= 0 || password[0] == '\n') {
 		printf("Password is empty!!!!!!!!!\n");
 		printf("Enter password: ");
-		fgets(password, 50, stdin);
+		getpasswd (&p, MAXPW, '*', fp);
+		printf("\n");
 	}
 	sendWithCheck(sock, password, sizeof(password));
 
@@ -140,7 +145,9 @@ void signUp(int sock) {
 
 // Chuc nang dang nhap - OK
 int signIn(int sock) {
-	char username[50], password[50], buff[BUFF_SIZE];
+	char username[50], password[50] = {0}, buff[BUFF_SIZE];
+    char *p = password;
+    FILE *fp = stdin;
 	sendCode(sock, LOGIN_REQUEST);
 	readWithCheck(sock, buff, BUFF_SIZE);
 	printf("========================= SIGNIN ========================\n");
@@ -167,19 +174,20 @@ int signIn(int sock) {
 	}
 
 	printf("Enter password: ");
-	fgets(password, 50, stdin);
-	while (strlen(password) <= 0 || password[0] == '\n'){
+	ssize_t nchr = getpasswd (&p, MAXPW, '*', fp);
+	printf("\n");
+	while (strlen(p) <= 0 || p[0] == '\n'){
 		printf("Password is empty!!!!!\n");
 		printf("Enter password: ");
-		fgets(password, 50, stdin);
+		getpasswd (&p, MAXPW, '*', fp);
+		printf("\n");
 	}
-	sendWithCheck(sock, password, sizeof(password) + 1);
+	sendWithCheck(sock, p, sizeof(p) + 1);
 	readWithCheck(sock, buff, BUFF_SIZE);
 	if (atoi(buff) != LOGIN_SUCCESS) {
 		printf("[-]Login failed!!\n");
 		return 0;
 	}else {
-		isLogin = 1;
 		strcpy(user, username);
 		return 1;
 	}
@@ -297,7 +305,6 @@ void recv_msg_handler(int *sock) {
 				fflush(stdout);
 				break;
 			case LOGOUT_SUCCESS: 
-				isLogin = 0;
 				return;
 			default:
 				break;
@@ -305,6 +312,11 @@ void recv_msg_handler(int *sock) {
 		}else if (receive == 0) {
 		}
 	}
+}
+
+// Gui anh len cho server - OK
+void *SendFileToServer(int new_socket, char fname[50]){
+	SendFile(new_socket, fname);
 }
 
 // Xu li luong nhan gui - OK
@@ -346,9 +358,4 @@ void navigation(int sock) {
 	default:
 		break;
 	}
-}
-
-// Gui anh len cho server - OK
-void *SendFileToServer(int new_socket, char fname[50]){
-	SendFile(new_socket, fname);
 }

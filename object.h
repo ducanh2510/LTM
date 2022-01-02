@@ -26,3 +26,5 @@ typedef struct
 	int uid;
 	char name[100];
 } client_t;
+
+

@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <termios.h>
 // #include <pthread.h>
 // #include "./communication_code.h"
 
@@ -19,6 +21,7 @@ int receiveUploadedFile(int sock, char filePath[100]);
 void str_trim_lf(char *arr, int length);
 void sendCode(int sock, int code);
 void clearBuff();
+ssize_t getpasswd (char **pw, size_t sz, int mask, FILE *fp);
 
 // NOI DUNG HAM DUOI DAY
 
@@ -141,4 +144,69 @@ void clearBuff() {
 	char c;
 	while ((c = getchar()) != '\n' && c != EOF) {
 	}
+}
+
+ssize_t getpasswd (char **pw, size_t sz, int mask, FILE *fp) {
+    if (!pw || !sz || !fp) return -1; 
+#ifdef MAXPW
+    if (sz > MAXPW) sz = MAXPW;
+#endif
+
+    if (*pw == NULL) {      
+        void *tmp = realloc (*pw, sz * sizeof **pw);
+        if (!tmp)
+            return -1;
+        memset (tmp, 0, sz);  
+        *pw =  (char*) tmp;
+    }
+
+    size_t idx = 0; 
+    int c = 0;
+
+    struct termios old_kbd_mode;   
+    struct termios new_kbd_mode;
+
+    if (tcgetattr (0, &old_kbd_mode)) { 
+        fprintf (stderr, "%s() error: tcgetattr failed.\n", __func__);
+        return -1;
+    }   /* copy old to new */
+    memcpy (&new_kbd_mode, &old_kbd_mode, sizeof(struct termios));
+
+    new_kbd_mode.c_lflag &= ~(ICANON | ECHO);
+    new_kbd_mode.c_cc[VTIME] = 0;
+    new_kbd_mode.c_cc[VMIN] = 1;
+    if (tcsetattr (0, TCSANOW, &new_kbd_mode)) {
+        fprintf (stderr, "%s() error: tcsetattr failed.\n", __func__);
+        return -1;
+    }
+
+    while (((c = fgetc (fp)) != '\n' && c != EOF && idx < sz - 1) ||
+            (idx == sz - 1 && c == 127))
+    {
+        if (c != 127) {
+            if (31 < mask && mask < 127)  
+                fputc (mask, stdout);
+            (*pw)[idx++] = c;
+        }
+        else if (idx > 0) {   
+            if (31 < mask && mask < 127) {
+                fputc (0x8, stdout);
+                fputc (' ', stdout);
+                fputc (0x8, stdout);
+            }
+            (*pw)[--idx] = 0;
+        }
+    }
+    (*pw)[idx] = 0; 
+
+    if (tcsetattr (0, TCSANOW, &old_kbd_mode)) {
+        fprintf (stderr, "%s() error: tcsetattr failed.\n", __func__);
+        return -1;
+    }
+
+    if (idx == sz - 1 && c != '\n')
+        fprintf (stderr, " (%s() warning: truncated at %zu chars.)\n",
+                __func__, sz - 1);
+
+    return idx; 
 }
