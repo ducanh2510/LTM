@@ -24,5 +24,6 @@
 //===================== INVALID ====================//
 #define INCORRECT_PASSWORD 900
 #define EXISTENCE_USERNAME 901
+#define LOGIN_FAILED 902
 #define NON_EXISTENCE_USERNAME 904
 //==================================================//

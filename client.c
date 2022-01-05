@@ -105,44 +105,24 @@ void signUp(int sock) {
 	char username[50], password[50], buff[BUFF_SIZE];
 	char *p = password;
     FILE *fp = stdin;
-	sendCode(sock, REGISTER_REQUEST);
-	readWithCheck(sock, buff, BUFF_SIZE);
 	printf(FG_YELLOW "============================== SIGNUP =============================\n");
+	char sign_up_request[1024];
 
 	clearBuff();
-	while (1) {
-		printf(FG_CYAN "Enter username: ");
-		fgets(username, 50, stdin);
-		while (strlen(username) <= 0 || username[0] == '\n') {
-			printf( FG_RED "Username is empty!!!!!!!\n" );
-			printf(FG_CYAN "Enter username: ");
-			scanf("%s", username);
-			str_trim_lf(username, 50);
-		}
-		sendWithCheck(sock, username, sizeof(username));
-
-		readWithCheck(sock, buff, BUFF_SIZE);
-		if (atoi(buff) == EXISTENCE_USERNAME) {
-			printf(FG_RED "Username is not available!!\n" );
-		}else {
-			break;
-		}
-	};
-
+	printf(FG_CYAN "Enter username: ");
+	fgets(username, 50, stdin);
+	str_trim_lf(username, 50);
 	printf(FG_CYAN "Enter password: " );
 	ssize_t nchr = getpasswd (&p, MAXPW, '*', fp);
 	printf("\n");
-	while (strlen(password) <= 0 || password[0] == '\n') {
-		printf(FG_RED "Password is empty!!!!!!!!!\n" );
-		printf(FG_CYAN "Enter password: " );
-		getpasswd (&p, MAXPW, '*', fp);
-		printf("\n");
-	}
-	sendWithCheck(sock, password, sizeof(password));
+	sprintf(sign_up_request, "%d*%s*%s", REGISTER_REQUEST,username, p);
+	sendWithCheck(sock, sign_up_request, sizeof(sign_up_request));
 
 	readWithCheck(sock, buff, BUFF_SIZE);
 	if (atoi(buff) == REGISTER_SUCCESS) {
 		printf(FG_GREEN "\n[+]Dang ki tai khoan thanh cong!!!\n" );
+	}else if(atoi(buff) == EXISTENCE_USERNAME) {
+		printf(FG_GREEN "\n[+]Dang ki tai khoan khong thanh cong!!!\n" );
 	}
 }
 
@@ -151,41 +131,18 @@ int signIn(int sock) {
 	char username[50], password[50] = {0}, buff[BUFF_SIZE];
     char *p = password;
     FILE *fp = stdin;
-	sendCode(sock, LOGIN_REQUEST);
-	readWithCheck(sock, buff, BUFF_SIZE);
+	char sign_in_request[1024];
 	printf(FG_YELLOW "============================ SIGNIN ============================\n");
 
 	clearBuff();
-	while (1){
-		printf( FG_CYAN "Enter username: " );
-		fgets(username, 50, stdin);
-		while (strlen(username) <= 0 || username[0] == '\n'){
-			username[0] = '\0';
-			printf("Username is empty!!!!\n");
-			printf( FG_CYAN "Enter username: " );
-			fgets(username, 50, stdin);
-		}
-
-		sendWithCheck(sock, username, sizeof(username));
-
-		readWithCheck(sock, buff, BUFF_SIZE);
-		if (atoi(buff) == NON_EXISTENCE_USERNAME) {
-			printf(FG_RED "Username is not available!!\n" );
-		}else {
-			break;
-		}
-	}
-
+	printf( FG_CYAN "Enter username: " );
+	fgets(username, 50, stdin);
+	str_trim_lf(username, 50);
 	printf(FG_CYAN "Enter password: " );
 	ssize_t nchr = getpasswd (&p, MAXPW, '*', fp);
 	printf("\n");
-	while (strlen(p) <= 0 || p[0] == '\n'){
-		printf(FG_RED"Password is empty!!!!!\n");
-		printf(FG_CYAN "Enter password: " );
-		getpasswd (&p, MAXPW, '*', fp);
-		printf("\n");
-	}
-	sendWithCheck(sock, p, sizeof(p) + 1);
+	sprintf(sign_in_request, "%d*%s*%s", LOGIN_REQUEST, username, p);
+	sendWithCheck(sock, sign_in_request, sizeof(sign_in_request));
 	readWithCheck(sock, buff, BUFF_SIZE);
 	if (atoi(buff) != LOGIN_SUCCESS) {
 		printf(FG_RED"[-]Login failed!!\n" );

@@ -180,28 +180,21 @@ node * deleteSingleList(singleList * list)
 
 // Luu thong tin user - OK
 int saveUsers(singleList users){
-  singleList groups;
   user_struct* user = NULL;
 
   FILE *fp = fopen("./storage/user.txt", "w");
 
   if(fp == NULL){
-    printf("Khong tim thay file luu tru. Luu nguoi dung that bai!!\n");
+    printf("[-]Khong tim thay file luu tru. Luu nguoi dung that bai!!\n");
   }
 
   users.cur = users.root;
   while(users.cur != NULL){
     user = (user_struct*)(users.cur->element);
     fprintf(fp, "%s\n%s\n%d\n", user->user_name, user->password, user->status);
-    groups.cur = groups.root;
-    while(groups.cur != NULL){
-      fprintf(fp, "%s\n", (char*)(groups.cur->element));
-      groups.cur = groups.cur->next;
-    }
 
     users.cur = users.cur->next;
   }
 
   fclose(fp);
-  printf("luu user thanh cong.\n");
 }

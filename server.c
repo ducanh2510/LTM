@@ -100,7 +100,7 @@ void readUserFile(singleList *users) {
 }
 
 // Kiem tra xem username da ton tai chua - OK
-int checkExistence(int type, singleList list, char string[50]) {
+int checkExistence(int type, singleList list, char *string) {
 	switch (type) {
 	// Check user
 	case 1: {
@@ -148,79 +148,42 @@ void *findByName(int type, singleList list, char string[50]) {
 }
 
 // Dang ky checked - OK
-void signUp(int sock, singleList *users) {
-	char buff[BUFF_SIZE], username[50], password[50];
+void signUp(int sock, singleList *users, char *name, char *pass) {
+	char buff[BUFF_SIZE];
 	int size;
-	sendCode(sock, REGISTER_SUCCESS);
-
-	while (1) {
-		size = readWithCheck(sock, buff, BUFF_SIZE);
-
-		strcpy(username, buff);
-		username[strlen(username) - 1] = '\0';
-		if (username[strlen(username) - 2] == '\n') {
-			username[strlen(username) - 2] = '\0';
-		}
-		printf("USERNAME: \'%s\'\n", username);
-		if (checkExistence(1, *users, username) == 1) {
-			sendCode(sock, EXISTENCE_USERNAME);
-		}else {
-			sendCode(sock, REGISTER_SUCCESS);
-			break;
-		}
+	printf("USERNAME: \'%s\'\n", name);
+	if (checkExistence(1, *users, name) == 1) {
+		sendCode(sock, EXISTENCE_USERNAME);
+	}else {
+		user_struct *user = (user_struct *)malloc(sizeof(user_struct));
+		strcpy(user->user_name, name);
+		strcpy(user->password, pass);
+		user->status = 1;
+		insertEnd(users, user);
+		sendCode(sock, REGISTER_SUCCESS);
 	}
-
-	readWithCheck(sock, buff, BUFF_SIZE);
-	buff[strlen(buff)] = '\0';
-	if (buff[strlen(buff) - 2] == '\n') {
-		buff[strlen(buff) - 2] = '\0';
-	}
-	printf("PASSWORD: %s\n", buff);
-
-	strcpy(password, buff);
-	user_struct *user = (user_struct *)malloc(sizeof(user_struct));
-	strcpy(user->user_name, username);
-	strcpy(user->password, password);
-	user->status = 1;
-	insertEnd(users, user);
-	sendCode(sock, REGISTER_SUCCESS);
 }
 
 // Dang nhap checked - OK
-int signIn(int sock, singleList users, user_struct **loginUser) {
-	char buff[BUFF_SIZE], username[50], password[50];
-	sendCode(sock, LOGIN_SUCCESS);
-
-	while (1) {
-		readWithCheck(sock, buff, BUFF_SIZE);
-		buff[strlen(buff) - 1] = '\0';
-		printf("USERNAME: %s\n", buff);
-
-		strcpy(username, buff);
-		if (checkExistence(1, users, username) == 1) {
+int signIn(int sock, singleList users, user_struct **loginUser, char *name, char *pass) {
+	if (checkExistence(1, users, name) == 1) {
+		*loginUser = (user_struct *)(findByName(1, users, name));
+		if (strcmp((*loginUser)->password, pass) == 0) {
 			sendCode(sock, LOGIN_SUCCESS);
-			break;
+			client_t *cli = (client_t *)malloc(sizeof(client_t));
+			strcpy(cli->name, name);
+			cli->sockfd = sock;
+			cli->uid = num_client;
+			queue_add(cli);
+			return 1;
 		}else {
-			sendCode(sock, NON_EXISTENCE_USERNAME);
+			sendCode(sock, LOGIN_FAILED);
+			return 0;
 		}
+	}else {
+		sendCode(sock, LOGIN_FAILED);
+		return 0;
 	}
-	readWithCheck(sock, buff, BUFF_SIZE);
-	buff[strlen(buff)] = '\0';
-	printf("PASSWORD: %s\n", buff);
-	strcpy(password, buff);
-
-	*loginUser = (user_struct *)(findByName(1, users, username));
-	if (strcmp((*loginUser)->password, password) == 0) {
-		sendCode(sock, LOGIN_SUCCESS);
-		client_t *cli = (client_t *)malloc(sizeof(client_t));
-		strcpy(cli->name, username);
-		cli->sockfd = sock;
-		cli->uid = num_client;
-		queue_add(cli);
-		return 1;
-	}
-	sendCode(sock, INCORRECT_PASSWORD);
-	return 0;
 }
 
 // Gui toi cac client khac tru nguoi gui - OK
@@ -293,21 +256,29 @@ void *handleThread(void *my_sock) {
 	char buff[1024];
 
 	char username[BUFF_SIZE] = {};
+	char *name, *pass;
 	user_struct *loginUser = NULL;
 
 	while (1) {
-		readWithCheck(new_socket, buff, 100);
+		readWithCheck(new_socket, buff, 1024);
+		char *opcode = strtok(buff, "*");
 		REQUEST = atoi(buff);
 		switch (REQUEST) {
 		case REGISTER_REQUEST:
+			name = strtok(NULL, "*");
+			pass = strtok(NULL, "*");
 			printf("[+]REGISTER_REQUEST\n");
-			signUp(new_socket, &users);
+			signUp(new_socket, &users, name, pass);
 			saveUsers(users);
+			memset(name, '\0', strlen(name) + 1);
+			memset(pass, '\0', strlen(pass) + 1);
 			break;
 		case LOGIN_REQUEST:
 			// nhan username va password
 			printf("[+]LOGIN_REQUEST\n");
-			if (signIn(new_socket, users, &loginUser) == 1) {
+			name = strtok(NULL, "*");
+			pass = strtok(NULL, "*");
+			if (signIn(new_socket, users, &loginUser, name, pass) == 1) {
 				while (REQUEST != LOGOUT_REQUEST) {
 					char *username;
 					char *filename;
