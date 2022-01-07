@@ -1,7 +1,12 @@
 #include "appScreen.h"
-#include "../../communication_code.h"
-#include "../../transfer.h"
+#include "communication_code.h"
+#include "transfer.h"
+#include <pthread.h>
 #define BUFF_SIZE 100
+
+int num_c = 0;
+char user_has_img[10][BUFF_SIZE];
+char find_file_name[BUFF_SIZE];
 
 GtkWidget *label_alert;
 
@@ -16,6 +21,9 @@ void create_find_window(UserData *userData);
 void login_clbk(GtkButton *button, GtkStack *stack);
 void main_clbk(GtkButton *button, GtkStack *stack);
 void register_clbk(GtkButton *button, GtkStack *stack);
+
+void recv_msg_handler(UserData *userData);
+void *SendFileToServer(int new_socket, char *fname);
 
 void clicked_clbk(GtkButton *button, GtkStack *stack);
 void load_css(void);
@@ -274,7 +282,7 @@ void create_find_window(UserData *userData) {
     gtk_container_add(GTK_CONTAINER(window), box);
     userData->screenApp->findContainer.window = window;
     gtk_widget_show_all(window);
-    g_signal_connect(findBtn,"clicked",G_CALLBACK(find_img),userData);
+    g_signal_connect(findBtn,"clicked",G_CALLBACK(find_img), userData);
     g_signal_connect(exitBtn, "clicked", G_CALLBACK(exitFind), userData);
 }
 
@@ -310,10 +318,14 @@ void enter_login(GtkButton *button, UserData *userData) {
         return;
     }else {
         strcpy(userData->username, userNameData);
-        printf("Name: %s\n", userData->username);
         gtk_widget_hide(userData->screenApp->preLoginContainer.window);
         create_find_window(userData);
         printf("[+]Login success!!!\n");
+        pthread_t recv_msg_thread;			
+		if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, userData) != 0) {
+			printf("[-]ERROR: pthread\n");
+			exit(EXIT_FAILURE);
+		}
         return;
     }
 }
@@ -352,11 +364,86 @@ void quit_clbk(GtkButton *button, UserData *userData) {
     gtk_main_quit();
 }
 
+void recv_msg_handler(UserData *userData) {
+    int REQUEST;
+	int sockfd = userData->sockFd;
+	char recvReq[1024];
+	char sendReq[1024];
+	char *fileName, *list_imgs;
+	while (1) {
+		char message[BUFF_SIZE] = {}; 
+		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
+		char *opcode;
+		opcode = strtok(recvReq, "*");
+		if (receive > 0) {
+			REQUEST = atoi(opcode);
+			switch (REQUEST) {
+			case FIND_IMG_IN_USERS:
+				printf(FG_GREEN "\n[+}FIND_IMG_IN_USERS\n");
+				fileName = strtok(NULL, "*");
+				char file_path[200];
+				strcpy(file_path, "./client_file/");
+				strcat(file_path, fileName);
+				printf(FG_GREEN"[+]FILENAME_TO_SEARCH : %s \n"NORMAL, fileName);
+				// neu tim thay:
+				if(access(file_path, F_OK) != -1) {
+					sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, userData->username);
+					send(sockfd, sendReq, sizeof(sendReq), 0);
+					printf(FG_GREEN"[+]FILE_WAS_FOUND\n"NORMAL);
+					SendFileToServer(sockfd, file_path);
+					printf(FG_GREEN"[+]SEND FILE DONE\n"NORMAL);
+				}else {
+					sprintf(sendReq, "%d*%s", FILE_WAS_NOT_FOUND, userData->username);
+					send(sockfd, sendReq, sizeof(sendReq), 0);
+					memset(sendReq, '\0', strlen(sendReq) + 1);
+				}
+				memset(file_path, '\0', strlen(file_path) + 1);
+				break;
+			case SEND_IMGS_TO_USER:
+				list_imgs = strtok(NULL, "*");
+				while(list_imgs != NULL) {
+					strcpy(user_has_img[num_c], list_imgs);
+					num_c++;
+					list_imgs = strtok(NULL, "*");
+				}
+				// if(choose != 0) {
+				// 	sprintf(sendReq, "%d*%s", CHOOSEN_USER, user_has_img[choose - 1]);
+				// 	send(sockfd, sendReq, sizeof(sendReq), 0);
+				// 	sprintf(file_path, "./%s", find_file_name);
+				// 	receiveUploadedFile(sockfd, file_path);
+				// 	memset(sendReq, '\0', strlen(sendReq) + 1);
+				// }else {
+				// 	sendCode(sockfd, NOT_CHOOSEN);
+				// }
+				// memset(find_file_name, '\0', sizeof(find_file_name));
+				memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
+				break;
+			case NO_IMG_FOUND:
+				printf(FG_RED "No images found!!!\n" ); 
+				// memset(find_file_name, '\0', sizeof(find_file_name));
+				// memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
+				printf(FG_CYAN "Please enter a name of file > " );
+				fflush(stdout);
+				break;
+			default:
+				break;
+			}
+		}else if (receive == 0) {
+		}
+	}
+}
+
+void *SendFileToServer(int new_socket, char fname[50]) {
+	SendFile(new_socket, fname);
+}
+
 void find_img(GtkButton *button, UserData *userData) {
-    // char send_request[1024];
-    // sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, userData->username, userData->screenApp->findContainer.fileNameEntry);
-	// sendWithCheck(userData->sockFd, send_request, strlen(send_request) + 1);
-    // memset(send_request, '\0', strlen(send_request) + 1);
+    char send_request[1024];
+    const gchar *message = gtk_entry_get_text((GtkEntry*)userData->screenApp->findContainer.fileNameEntry);
+    sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, userData->username, message);
+	sendWithCheck(userData->sockFd, send_request, strlen(send_request) + 1);
+    printf("SEND_MESSAGE: %s\n", send_request);
+    memset(send_request, '\0', strlen(send_request) + 1);
 }
 
 void exitFind(GtkButton *button, UserData *userData) {

@@ -303,7 +303,7 @@ void *handleThread(void *my_sock) {
 						// gui yeu cau toi cac may con lai
 						send_message(username, filename);
 						count_send = num_client - 1;
-						printf("[+]SEND TO ALL : %s\n", buff);
+						printf("[+]SEND TO ALL : %s\n", filename);
 						memset(username, '\0', strlen(username) + 1);
 						break;
 					case FILE_WAS_FOUND:

@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include "./view/include/initScreen.h"
+#include "initScreen.h"
 
 int initSocket(char *ip_address, int port, UserData *userData) {
 	int sock = 0;

@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include "./communication_code.h"
-#include "transfer.h"
+#include "./view/include/transfer.h"
 #include "colorCode.h"
 
 #define MAXPW 50

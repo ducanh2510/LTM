@@ -4,11 +4,8 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <termios.h>
 #include "colorCode.h"
-// #include <pthread.h>
-// #include "./communication_code.h"
 
 #define BUFF_SIZE 100
 #define REQUEST_SIZE 1024
@@ -52,7 +49,7 @@ int readWithCheck(int sock, char buff[BUFF_SIZE], int length) {
 }
 
 // Ham gui file cho server - OK
-void *SendFile(int new_socket, char fname[50]) {
+void *SendFile(int new_socket, char *fname) {
 	FILE *fp = fopen(fname, "rb");
 	if (fp == NULL) {
 		printf("[-]File open error");
