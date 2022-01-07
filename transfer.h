@@ -37,8 +37,7 @@ void sendWithCheck(int sock, char buff[BUFF_SIZE], int length) {
 	sendByte = send(sock, buff, length, 0);
 	if (sendByte > 0) {
 	}else {
-		close(sock);
-		printf("[-]Connection is interrupted.n");
+		printf("[-]Connection is interrupted\n");
 		exit(0);
 	}
 }
@@ -49,9 +48,6 @@ int readWithCheck(int sock, char buff[BUFF_SIZE], int length) {
 	recvByte = recv(sock, buff, length, 0);
 	if (recvByte > 0) {
 		return recvByte;
-	}else {
-		close(sock);
-		exit(0);
 	}
 }
 

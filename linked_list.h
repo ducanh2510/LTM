@@ -185,16 +185,16 @@ int saveUsers(singleList users){
   FILE *fp = fopen("./storage/user.txt", "w");
 
   if(fp == NULL){
-    printf("[-]Khong tim thay file luu tru. Luu nguoi dung that bai!!\n");
+    printf("Khong tim thay file luu tru. Luu nguoi dung that bai!!\n");
   }
 
   users.cur = users.root;
   while(users.cur != NULL){
     user = (user_struct*)(users.cur->element);
     fprintf(fp, "%s\n%s\n%d\n", user->user_name, user->password, user->status);
-
     users.cur = users.cur->next;
   }
 
   fclose(fp);
+  printf("Save account success\n");
 }

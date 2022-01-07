@@ -161,6 +161,7 @@ void signUp(int sock, singleList *users, char *name, char *pass) {
 		user->status = 1;
 		insertEnd(users, user);
 		sendCode(sock, REGISTER_SUCCESS);
+		printf("REGISTER SUCCESS\n");
 	}
 }
 
@@ -175,13 +176,16 @@ int signIn(int sock, singleList users, user_struct **loginUser, char *name, char
 			cli->sockfd = sock;
 			cli->uid = num_client;
 			queue_add(cli);
+			printf("[+] LOGIN SUCCESS\n");
 			return 1;
 		}else {
 			sendCode(sock, LOGIN_FAILED);
+			printf("[-] LOGIN FAILED\n");
 			return 0;
 		}
 	}else {
 		sendCode(sock, LOGIN_FAILED);
+		printf("[-] LOGIN FAILED\n");
 		return 0;
 	}
 }
@@ -260,7 +264,10 @@ void *handleThread(void *my_sock) {
 	user_struct *loginUser = NULL;
 
 	while (1) {
-		readWithCheck(new_socket, buff, 1024);
+		int n = readWithCheck(new_socket, buff, 1024);
+		if(n <= 0) {
+			continue;
+		}
 		char *opcode = strtok(buff, "*");
 		REQUEST = atoi(buff);
 		switch (REQUEST) {
@@ -344,6 +351,7 @@ void *handleThread(void *my_sock) {
 						printf("[+]LOGOUT_REQUEST\n");
 						username = strtok(NULL, "*");
 						queue_delete(username);
+						printf("[+]LOGOUT SUCCESS\n");
 						sendCode(new_socket, LOGOUT_SUCCESS);
 						memset(username, '\0', strlen(username) + 1);
 						loginUser = NULL;
@@ -354,11 +362,13 @@ void *handleThread(void *my_sock) {
 				}
 			}
 			break;
+		case EXIT_SYS:
+			break;
 		default:
 			break;
 		}
 	}
-	close(new_socket);
+	// close(new_socket);
 }
 
 //==============MAIN==============

@@ -12,6 +12,7 @@
 #define CHOOSEN_USER 145
 #define NO_IMG_FOUND 146
 #define NOT_CHOOSEN 147
+#define EXIT_SYS 100
 //==================================================//
 
 //====================== ALERT =====================//
