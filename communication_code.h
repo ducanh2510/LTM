@@ -9,10 +9,9 @@
 #define FILE_WAS_FOUND 142
 #define FILE_WAS_NOT_FOUND 143
 #define SEND_IMGS_TO_USER 144
-#define CHOOSEN_USER 145
 #define NO_IMG_FOUND 146
-#define NOT_CHOOSEN 147
 #define EXIT_SYS 100
+#define SEND_DONE 200
 //==================================================//
 
 //====================== ALERT =====================//

@@ -18,6 +18,7 @@
 
 int count_send = 0;
 int count_write = 0;
+char list_client[10][100];
 char list_clients_img[REQUEST_SIZE] = "";
 char main_name[BUFF_SIZE] = "";
 
@@ -203,19 +204,6 @@ void send_message(char name[100], char *nameFile) {
 	}
 }
 
-// Gui list danh sach anh cho nguoi yeu cau tim kiem - OK
-void send_message_to_sender(char *list_imgs) {
-	char send_request[REQUEST_SIZE];
-	for (int i = 0; i < num_client; i++) {
-		if (strcmp(main_name, clients[i]->name) == 0) {
-			sprintf(send_request, "%d*%s", SEND_IMGS_TO_USER, list_imgs);
-			send(clients[i]->sockfd, send_request, sizeof(send_request), 0);
-			memset(send_request, '\0', strlen(send_request) + 1);
-			break;
-		}
-	}
-}
-
 // Gui code khong tim thay anh - OK
 void send_code_img_not_found(){ 
 	for (int i = 0; i < num_client; i++) {
@@ -227,30 +215,47 @@ void send_code_img_not_found(){
 }
 
 // Ham gui file cho server - OK
-void *SendFileToClient(int new_socket, char fname[50]) {
+void *SendFileToClient(int new_socket, char *fname) {
 	SendFile(new_socket, fname);
 }
 
-// Nhan file gui len tu client - OK
-void receiveUploadedFileServer(int sock, char filePath[100]){
-	if(receiveUploadedFile(sock, filePath)) count_write++;
-	else return;
+// Gui list danh sach anh cho nguoi yeu cau tim kiem - OK
+void send_message_to_sender() {
+	char send_request[REQUEST_SIZE], file_path[200];
+	char *client_has_img = strtok(list_clients_img, "*");
+	for(int i = 0; i < count_write; i++) {	
+		strcpy(list_client[i], client_has_img);
+		client_has_img = strtok(NULL, "*");
+	}
+	for (int i = 0; i < num_client; i++) {
+		if (strcmp(main_name, clients[i]->name) == 0) {
+			for(int j = 0; j < count_write; j++) {	
+				strcpy(file_path, "");
+				sprintf(file_path, "./files/%s.jpg", list_client[j]);
+				sprintf(send_request, "%d*%s", SEND_IMGS_TO_USER, list_client[j]);
+				send(clients[i]->sockfd, send_request, sizeof(send_request), 0);
+				SendFileToClient(clients[i]->sockfd, file_path);
+				printf("SEND_MESSAGE: %s\n", send_request);
+				if(remove(file_path) == 0){
+					printf("[+] DELETED FILE SUCCESS: %s\n", file_path);
+				}else{
+					printf("[-] DELETED FILE FAILED: %s\n", file_path);
+				}
+				memset(send_request, '\0', strlen(send_request) + 1);
+			}
+			sendCode(clients[i]->sockfd, SEND_DONE);
+			printf("[+]SEND TO SENDER DONE\n");
+			memset(list_clients_img, '\0', sizeof(list_clients_img));
+			memset(list_client, '\0', sizeof(list_client[0][0]) * 10 * 100);
+			break;
+		}
+	}
 }
 
-// Xoa file anh trong thu muc tam thoi - OK
-void deleteImgsFile(char list_clients_img_copy[1024]) {
-	char *deleteName;
-	deleteName = strtok(list_clients_img_copy, "*");
-	while(deleteName != NULL) {
-		char path[1024];
-		sprintf(path, "./files/%s.jpg", deleteName);
-		if(remove(path) == 0){
-			printf("[+] DELETED FILE SUCCESS: %s\n", path);
-		}else{
-			printf("[+] DELETED FILE FAILED: %s\n", path);
-		}
-		deleteName = strtok(NULL, "*");
-	}
+// Nhan file gui len tu client - OK
+void receiveUploadedFileServer(int sock, char filePath[200]){
+	if(receiveUploadedFile(sock, filePath)) count_write++;
+	else return;
 }
 
 // Ham xu li luong - OK
@@ -258,14 +263,12 @@ void *handleThread(void *my_sock) {
 	int new_socket = *((int *)my_sock);
 	int REQUEST;
 	char buff[1024];
-
-	char username[BUFF_SIZE] = {};
 	char *name, *pass;
 	user_struct *loginUser = NULL;
 
 	while (1) {
 		int n = readWithCheck(new_socket, buff, 1024);
-		if(n <= 0) {
+		if(n <= 0 || strlen(buff) == 0) {
 			continue;
 		}
 		char *opcode = strtok(buff, "*");
@@ -289,7 +292,6 @@ void *handleThread(void *my_sock) {
 				while (REQUEST != LOGOUT_REQUEST) {
 					char *username;
 					char *filename;
-					char *choosen_user;
 					readWithCheck(new_socket, buff, REQUEST_SIZE);
 					printRequest(buff);
 					char *opcode;
@@ -305,11 +307,12 @@ void *handleThread(void *my_sock) {
 						count_send = num_client - 1;
 						printf("[+]SEND TO ALL : %s\n", filename);
 						memset(username, '\0', strlen(username) + 1);
+						memset(buff, '\0', strlen(buff) + 1);
 						break;
 					case FILE_WAS_FOUND:
 						username = strtok(NULL, "*");
 						printf("[+]FOUND FROM %s\n", username);  
-						char file_path[BUFF_SIZE];
+						char file_path[200];
 						str_trim_lf(username, strlen(username));
 						sprintf(file_path, "./files/%s.jpg", username);
 						username[strlen(username)] = '\0';
@@ -318,34 +321,19 @@ void *handleThread(void *my_sock) {
 						strcat(list_clients_img, "*");
 						pthread_mutex_unlock(&clients_mutex);
 						receiveUploadedFileServer(new_socket, file_path);
-						memset(file_path, '\0', strlen(file_path) + 1);
 						if(count_send == count_write) {
-							send_message_to_sender(list_clients_img);
+							send_message_to_sender();
 							count_send = count_write = 0;
 						}
-						break;
-					case CHOOSEN_USER:
-						choosen_user = strtok(NULL, "*");
-						sprintf(file_path, "./files/%s.jpg", choosen_user);
-						SendFileToClient(new_socket, file_path);
-						memset(main_name, '\0', strlen(main_name) + 1);
-						char list_clients_img_copy[1024];
-						strcpy(list_clients_img_copy, list_clients_img);
-						deleteImgsFile(list_clients_img_copy);
-						memset(list_clients_img, '\0', strlen(list_clients_img) + 1);
-						memset(list_clients_img_copy, '\0', strlen(list_clients_img_copy) + 1);
-						printf("===============COMPLETE===============\n");
+						memset(file_path, '\0', strlen(file_path) + 1);
+						memset(buff, '\0', strlen(buff) + 1);
 						break;
 					case FILE_WAS_NOT_FOUND:
 						count_send--;
 						if(count_send == 0) {
 							send_code_img_not_found();
 						}
-						break;
-					case NOT_CHOOSEN:
-						memset(main_name, '\0', strlen(main_name) + 1);
-						deleteImgsFile(list_clients_img);
-						memset(list_clients_img, '\0', strlen(list_clients_img) + 1);
+						memset(buff, '\0', strlen(buff) + 1);
 						break;
 					case LOGOUT_REQUEST: // request code: 14
 						printf("[+]LOGOUT_REQUEST\n");
@@ -355,6 +343,7 @@ void *handleThread(void *my_sock) {
 						sendCode(new_socket, LOGOUT_SUCCESS);
 						memset(username, '\0', strlen(username) + 1);
 						loginUser = NULL;
+						memset(buff, '\0', strlen(buff) + 1);
 						break;
 					default:
 						break;

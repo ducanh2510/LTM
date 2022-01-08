@@ -77,12 +77,14 @@ void *SendFile(int new_socket, char *fname) {
 			break;
 		}
 	}
+	printf(FG_GREEN "[+]File OK....Completed" NORMAL "\n");
+	printf(FG_GREEN "[+]TOTAL SEND: %d\n" NORMAL, total);
 }
 
 // Ham nhan file va ghi file vao thu muc chua - OK
-int receiveUploadedFile(int sock, char filePath[100]) {
+int receiveUploadedFile(int sock, char filePath[200]) {
 	int bytesReceived = 0;
-	char recvBuff[1024], fname[100], path[100];
+	char recvBuff[1024];
 	FILE *fp;
 	printf(FG_GREEN "[+]Receiving file..." NORMAL "\n");
 	fp = fopen(filePath, "wb");
@@ -92,6 +94,7 @@ int receiveUploadedFile(int sock, char filePath[100]) {
 	}
 	int sizeFileRecv;
 	recv(sock, &sizeFileRecv, sizeof(sizeFileRecv), 0);
+	printf("[+]SIZE IMG: %d\n", sizeFileRecv);
 	ssize_t n;
 	int total = 0;
 	char buff[1024] = {0};

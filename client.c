@@ -1,42 +1,51 @@
 #include <stdio.h>
+#include <pthread.h>
+#include <dirent.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include "./communication_code.h"
-#include "./view/include/transfer.h"
-#include "colorCode.h"
+#include "appScreen.h"
+#include "communication_code.h"
+#include "transfer.h"
+#define BUFF_SIZE 100
 
-#define MAXPW 50
+GtkWidget *label_alert;
+char list_img_clients[1024] = "";
+static int send_done = 0;
+char main_message[100] = "";
 
-char user[100] = "";
-int num_c = 0;
-int recv_sig = 0;
-char user_has_img[10][BUFF_SIZE];
-char find_file_name[BUFF_SIZE];
+void initApp(UserData *userData);
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t cond = PTHREAD_COND_INITIALIZER; 
+GtkWidget *createWindow(const gint width, const gint height, const gchar *const title);
+GtkWidget *create_login_box(GtkWidget *stack, UserData *userData);
+GtkWidget *create_stack_box(GtkWidget **stack);
+GtkWidget *create_login_grid(GtkWidget *stack, UserData *userData);
+GtkWidget *create_register_grid(GtkWidget *stack, UserData *userData);
 
-int menu1();
-void navigation(int sock);
-void signUp(int sock);
-int signIn(int sock);
-void sendCode(int sock, int code);
-void *SendFileToServer(int sock, char name[50]);
+void create_find_window(UserData *userData);
+void create_show_img_grid(UserData *userData);
 
-//=============== MAIN ==================
-int main(int argc, char *argv[]) {
-	pthread_t thread;
-	if (argc != 3) {
-		printf("Please input IP address and port number\n");
-		return 0;
-	}
-	char *ip_address = argv[1];
-	char *port_number = argv[2];
-	int port = atoi(port_number);
+void login_clbk(GtkButton *button, GtkStack *stack);
+void main_clbk(GtkButton *button, GtkStack *stack);
+void register_clbk(GtkButton *button, GtkStack *stack);
+
+void recv_msg_handler(UserData *userData);
+void *SendFileToServer(int new_socket, char *fname);
+
+void clicked_clbk(GtkButton *button, GtkStack *stack);
+void download_img(GtkButton *button, UserData *userData);
+void load_css(void);
+void quit_clbk(GtkButton *button, UserData *userData);
+void enter_login(GtkButton *button, UserData *userData);
+void enter_signUp(GtkButton *button, UserData *userData);
+int count_file_in_dir(char *dir_name);
+
+void find_img(GtkButton *button, UserData *userData);
+void exitFind(GtkButton *button, UserData *userData);
+
+int initSocket(char *ip_address, int port, UserData *userData) {
 	int sock = 0;
 	struct sockaddr_in serv_addr;
 
@@ -59,151 +68,434 @@ int main(int argc, char *argv[]) {
 		printf("\n[-]Connection Failed \n");
 		return -1;
 	}
-
-	// ============================Start to communicate with Server======================
-	// ==================================================================================
-	
-	do {
-		navigation(sock);
-	}while(1);
-
-	close(sock);
-	return 0;
-}
-void clearScreen()
-{
-  const char *CLEAR_SCREEN_ANSI = "\e[1;1H\e[2J";
-  write(STDOUT_FILENO, CLEAR_SCREEN_ANSI, 12);
-}
-// Menu dang nhap hoac dang ky - OK
-int menu1() {
-	int choice, catch;
-	char err[10];
-	printf("\n\n");
-	printf( FG_YELLOW "====================UPLOAD FILE IMAGE SHARING==================="  "\n");
-	printf(FG_MAGENTA ITALIC  "1. Sign up"  "\n"NORMAL);
-	printf(FG_MAGENTA ITALIC "2. Sign in\n" NORMAL);
-	printf(FG_MAGENTA ITALIC "3. Exit\n"NORMAL );
-	printf(FG_YELLOW "================================================================" "\n");
-	printf(FG_CYAN "=> Enter your choice: " );
-	catch = scanf("%d", &choice);
-
-	printf("\n\n");
-	if (catch > 0)
-		return choice;
-	else
-	{
-		fgets(err, 10, stdin);
-		err[strlen(err) - 1] = '\0';
-		printf(FG_RED "[-]\"%s\" is not allowed!\n" , err);
-		return -1;
-	}
+    userData->sockFd = sock;
+    return userData->sockFd;
 }
 
-// Chuc nang dang ky - OK
-void signUp(int sock) {
-	char username[50], password[50], buff[BUFF_SIZE];
-	char *p = password;
-    FILE *fp = stdin;
-	printf(FG_YELLOW "============================== SIGNUP =============================\n");
-	char sign_up_request[1024];
+int main(int argc, char *argv[]) {
 
-	clearBuff();
-	printf(FG_CYAN "Enter username: ");
-	fgets(username, 50, stdin);
-	str_trim_lf(username, 50);
-	printf(FG_CYAN "Enter password: " );
-	ssize_t nchr = getpasswd (&p, MAXPW, '*', fp);
-	printf("\n");
-	sprintf(sign_up_request, "%d*%s*%s", REGISTER_REQUEST,username, p);
-	sendWithCheck(sock, sign_up_request, sizeof(sign_up_request));
+    UserData *userData = (UserData*)malloc(sizeof(UserData));
+    ScreenApp screenApp;
+    gtk_init(&argc, &argv);
 
-	readWithCheck(sock, buff, BUFF_SIZE);
-	if (atoi(buff) == REGISTER_SUCCESS) {
-		printf(FG_GREEN "\n[+]Dang ki tai khoan thanh cong!!!\n" );
-	}else if(atoi(buff) == EXISTENCE_USERNAME) {
-		printf(FG_GREEN "\n[+]Dang ki tai khoan khong thanh cong!!!\n" );
-	}
+    if ((userData->sockFd = initSocket("127.0.0.1", 5500, userData)) <= 0)
+        return userData->sockFd;
+
+    userData->screenApp = &screenApp;
+    initApp(userData);
+    return 0;
 }
 
-// Chuc nang dang nhap - OK
-int signIn(int sock) {
-	char username[50], password[50] = {0}, buff[BUFF_SIZE];
-    char *p = password;
-    FILE *fp = stdin;
-	char sign_in_request[1024];
-	printf(FG_YELLOW "============================ SIGNIN ============================\n");
+// =============================================
 
-	clearBuff();
-	printf( FG_CYAN "Enter username: " );
-	fgets(username, 50, stdin);
-	str_trim_lf(username, 50);
-	printf(FG_CYAN "Enter password: " );
-	ssize_t nchr = getpasswd (&p, MAXPW, '*', fp);
-	printf("\n");
-	sprintf(sign_in_request, "%d*%s*%s", LOGIN_REQUEST, username, p);
-	sendWithCheck(sock, sign_in_request, sizeof(sign_in_request));
-	readWithCheck(sock, buff, BUFF_SIZE);
-	if (atoi(buff) != LOGIN_SUCCESS) {
-		printf(FG_RED"[-]Login failed!!\n" );
-		return 0;
-	}else {
-		strcpy(user, username);
-		clearScreen();
-		return 1;
-	}
+void initPreLoginScreen(UserData *userData) {
+
+    GtkWidget *window;
+    GtkWidget *login_box;  // 3 nutg
+    GtkWidget *login_grid; //
+    GtkWidget *register_grid;
+
+    GtkWidget *stack_box;
+    GtkWidget *stack;
+
+    // gtk_init(NULL, NULL);
+    load_css();
+
+    /// *** Create a Window
+    window = createWindow(600, 400, "SHARE IMAGE APPPICATION");
+
+    /// *** Create the Stack Box
+    stack_box = create_stack_box(&stack);
+    gtk_container_add(GTK_CONTAINER(window), stack_box);
+
+    /// ***
+    login_box = create_login_box(stack, userData);
+    login_grid = create_login_grid(stack, userData);
+    register_grid = create_register_grid(stack, userData);
+
+    /// ***
+    gtk_stack_add_named(GTK_STACK(stack), login_box, "Main");
+    gtk_stack_add_named(GTK_STACK(stack), login_grid, "Login");
+    gtk_stack_add_named(GTK_STACK(stack), register_grid, "Register");
+
+    /// ***
+    gtk_stack_set_transition_type(GTK_STACK(stack), GTK_STACK_TRANSITION_TYPE_SLIDE_DOWN);
+    gtk_stack_set_transition_duration(GTK_STACK(stack), 1000);
+    gtk_stack_set_interpolate_size(GTK_STACK(stack), TRUE);
+    userData->screenApp->preLoginContainer.window = window;
+
+    /// ***
+    gtk_widget_show_all(window);
+    gtk_widget_hide(userData->screenApp->preLoginContainer.label_alert);
+    gtk_window_set_deletable((GtkWindow*)window, FALSE);
+
+    gtk_main();
 }
 
-// Ham xu li gui yeu cau tim kiem cua client cho server - OK
-void send_msg_handler(int *sock) {
-	int sockfd = *sock;
-	char buffer[100];
-	char send_request[REQUEST_SIZE];
-	printf(FG_CYAN "Please enter a name of file > " );
-	fflush(stdout);
-	while (1) {
-		if(recv_sig == 0) {
-			fgets(buffer, 100, stdin);
-			str_trim_lf(buffer, 100);
-			strcpy(find_file_name, buffer);
-			str_trim_lf(user, 100);
-			
-			if(strstr(buffer, "exit")) {
-				sprintf(send_request, "%d*%s", LOGOUT_REQUEST, user);
-				sendWithCheck(sockfd, send_request, strlen(send_request) + 1);
-				bzero(buffer, 100);
-				memset(send_request, '\0', strlen(send_request) + 1);
-				return;
-			}
-			if(strlen(buffer) > 0) {
-				sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, user, buffer);
-				sendWithCheck(sockfd, send_request, strlen(send_request) + 1);
-				recv_sig = 1;
-				bzero(buffer, 100);
-				memset(send_request, '\0', strlen(send_request) + 1);
-			}
+// Load css - OK
+void load_css(void) {
+    GtkCssProvider *provider;
+    GdkDisplay *display;
+    GdkScreen *screen;
+    /// ***
+    const gchar *css_style_file = "style.css";
+    GFile *css_fp = g_file_new_for_path(css_style_file);
+    GError *error = 0;
+    /// ***
+    provider = gtk_css_provider_new();
+    display = gdk_display_get_default();
+    screen = gdk_display_get_default_screen(display);
+    /// ***
+    gtk_style_context_add_provider_for_screen(screen, GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    gtk_css_provider_load_from_file(provider, css_fp, &error);
+    /// ***
+}
+
+// Tao cua so moi
+GtkWidget *createWindow(const gint width, const gint height, const gchar *const title) {
+    GtkWidget *window;
+    window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+    gtk_window_set_title(GTK_WINDOW(window), title);
+    g_signal_connect(window, "destroy", gtk_main_quit, window);
+    gtk_window_set_default_size(GTK_WINDOW(window), width, height);
+    gtk_container_set_border_width(GTK_CONTAINER(window), 50);
+    return window;
+}
+
+// Tao 3 box co 3 nut dau tien
+GtkWidget *create_login_box(GtkWidget *stack, UserData *userData) {
+    GtkWidget *box;
+    GtkWidget *login_button;
+    GtkWidget *register_button;
+    GtkWidget *close_button;
+
+    /// *** Create the Box
+    box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+
+    /// *** Create the Buttons
+    login_button = gtk_button_new_with_label("Login");
+    register_button = gtk_button_new_with_label("Register");
+    close_button = gtk_button_new_with_label("EXIT");
+
+    /// *** Add them to the Box
+    gtk_box_pack_start(GTK_BOX(box), login_button, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(box), register_button, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(box), close_button, 0, 0, 0);
+
+    /// ***
+    g_signal_connect(login_button, "clicked", G_CALLBACK(login_clbk), stack);
+    g_signal_connect(register_button, "clicked", G_CALLBACK(register_clbk), stack);
+    g_signal_connect(close_button, "clicked", G_CALLBACK(quit_clbk), userData);
+
+    /// *** Return the Box
+    return box;
+}
+
+// Dien login o day
+GtkWidget *create_login_grid(GtkWidget *stack, UserData *userData) {
+    GtkWidget *grid;
+    GtkWidget *login_button;
+    GtkWidget *back_button;
+
+    GtkWidget *label_username;
+    GtkWidget *entry_username;
+
+    GtkWidget *label_password;
+    GtkWidget *entry_password;
+
+    /// *** Create the Grid
+    grid = gtk_grid_new();
+
+    /// ***
+    label_username = gtk_label_new("Username:");
+    label_password = gtk_label_new("Password:");
+    label_alert = gtk_label_new("User name or Password incorrect!!!");
+
+    /// ***
+    entry_username = gtk_entry_new();
+    userData->screenApp->preLoginContainer.login_user_name = entry_username;
+    entry_password = gtk_entry_new();
+    gtk_entry_set_visibility((GtkEntry *)entry_password, FALSE);
+    userData->screenApp->preLoginContainer.login_password = entry_password;
+    userData->screenApp->preLoginContainer.label_alert = label_alert;
+
+    /// ***
+    login_button = gtk_button_new_with_label("Login");
+    back_button = gtk_button_new_with_label("Go to Main");
+
+    /// ***
+    gtk_grid_attach(GTK_GRID(grid), label_username, 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_username, 1, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), label_password, 0, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_password, 1, 1, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), back_button, 0, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), login_button, 1, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), label_alert, 0, 3, 1, 1);
+
+    // gtk_widget_hide(label_alert);
+
+    gtk_grid_set_row_spacing((GtkGrid *)grid, 10);
+    /// ***
+    g_signal_connect(back_button, "clicked", G_CALLBACK(main_clbk), stack);
+    g_signal_connect(login_button, "clicked", G_CALLBACK(enter_login), userData);
+    /// ***
+    return grid;
+}
+
+GtkWidget *create_register_grid(GtkWidget *stack, UserData *userData) {
+    GtkWidget *grid;
+    GtkWidget *register_button;
+    GtkWidget *back_button;
+
+    GtkWidget *label_username;
+    GtkWidget *entry_username;
+
+    GtkWidget *label_password;
+    GtkWidget *entry_password;
+
+    /// *** Create the Grid
+    grid = gtk_grid_new();
+
+    /// ***
+    label_username = gtk_label_new("Username: ");
+    label_password = gtk_label_new("Password:");
+
+    /// ***
+    entry_username = gtk_entry_new();
+    entry_password = gtk_entry_new();
+    gtk_entry_set_visibility((GtkEntry *)entry_password, FALSE);
+    userData->screenApp->preLoginContainer.register_user_name = entry_username;
+    userData->screenApp->preLoginContainer.register_password = entry_password;
+    userData->screenApp->preLoginContainer.label_alert = label_alert;
+
+    /// ***
+    register_button = gtk_button_new_with_label("Register");
+    back_button = gtk_button_new_with_label("Back to Main");
+
+    /// ***
+    gtk_grid_attach(GTK_GRID(grid), label_username, 0, 0, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_username, 1, 0, 1, 1);
+
+    gtk_grid_attach(GTK_GRID(grid), label_password, 0, 2, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), entry_password, 1, 2, 1, 1);
+
+    gtk_grid_attach(GTK_GRID(grid), back_button, 0, 6, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), register_button, 1, 6, 1, 1);
+
+    /// ***
+    g_signal_connect(back_button, "clicked", G_CALLBACK(main_clbk), stack);
+    g_signal_connect(register_button, "clicked", G_CALLBACK(enter_signUp), userData);
+
+    /// ***
+    return grid;
+}
+
+// Tao stack
+GtkWidget *create_stack_box(GtkWidget **stack) {
+    GtkWidget *box;
+
+    /// *** Create the Box
+    box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+
+    /// *** Create a Stack
+    *stack = gtk_stack_new();
+    gtk_widget_set_halign(*stack, GTK_ALIGN_CENTER);
+    gtk_box_set_center_widget(GTK_BOX(box), *stack);
+
+    /// ***
+    return box;
+}
+
+void create_find_window(UserData *userData) {
+
+    GtkWidget *window;
+    GtkWidget *fileNameLabel;
+    GtkWidget *fileNameEntry;
+    GtkWidget *box;
+    GtkWidget *findBtn;
+    GtkWidget *exitBtn;
+    load_css();
+    window = createWindow(500, 400, "SHARE IMAGE APPPICATION");
+    fileNameLabel = gtk_label_new("File name");
+    fileNameEntry = gtk_entry_new();
+    gtk_entry_set_placeholder_text(GTK_ENTRY(fileNameEntry), "Please enter the name of file");
+
+    userData->screenApp->findContainer.fileNameLabel = fileNameLabel;
+    userData->screenApp->findContainer.fileNameEntry = fileNameEntry;
+
+    findBtn = gtk_button_new_with_label("Find");
+    exitBtn = gtk_button_new_with_label("LOG_OUT");
+
+    box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
+    gtk_box_pack_start(GTK_BOX(box), fileNameLabel, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), fileNameEntry, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), findBtn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), exitBtn, FALSE, FALSE, 0);
+
+    gtk_container_add(GTK_CONTAINER(window), box);
+    userData->screenApp->findContainer.window = window;
+    gtk_widget_show_all(window);
+    gtk_window_set_deletable((GtkWindow*)window, FALSE);
+    g_signal_connect(findBtn,"clicked",G_CALLBACK(find_img), userData);
+    g_signal_connect(exitBtn, "clicked", G_CALLBACK(exitFind), userData);
+}
+
+int count_file_in_dir(char *dir_name) {
+    int count = 0;
+    DIR *d;
+    struct dirent *dir;
+    d = opendir("./temporary_image/");
+    if (d) {
+      while ((dir = readdir(d)) != NULL) {
+          if(dir->d_type == DT_REG) {
+            count++;
+          }
+      }
+      closedir(d);
+    }
+    return count;
+}
+
+void create_show_img_grid(UserData *userData) {
+    GtkWidget *grid, *window;
+    window = createWindow(500, 400, "SHARE IMAGE APPPICATION");
+    grid = gtk_grid_new();
+    gtk_grid_set_column_spacing((GtkGrid *)grid, 10);
+    int k = 0, m = 0, count_img = count_file_in_dir("./temporary_image/");
+    char file_path[200];
+    printf("LIST CREAT : %s\n", list_img_clients);
+    char *fileName = strtok(list_img_clients, "*");
+    GtkWidget *not_download = gtk_button_new_with_label("I DON'T WANT DOWNLOAD IMG");
+    for (int i = 0; i <= count_img; i++) {
+        if( i == count_img) {
+            gtk_grid_attach(GTK_GRID(grid), not_download, count_img, count_img, 1, 1);
+            break;
+        }
+        GdkPixbuf *pb;
+        GtkWidget *image;
+        GtkWidget *image_button;
+        gchar name[50];
+        sprintf(name, "%s", fileName);
+        image_button = gtk_button_new_with_label(name);
+        strcpy(file_path, "");
+        sprintf(file_path, "./temporary_image/%s.jpg", fileName);
+        pb = gdk_pixbuf_new_from_file(file_path, NULL);
+        pb = gdk_pixbuf_scale_simple(pb, 100, 100, GDK_INTERP_BILINEAR);
+        image = gtk_image_new_from_pixbuf(gdk_pixbuf_copy(pb));
+        gtk_image_set_from_pixbuf(GTK_IMAGE(image), pb);
+        gtk_grid_attach(GTK_GRID(grid), image, k, (i / 3) * 2, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), image_button, k, (i / 3) * 2 + 1, 1, 1);
+        if (k == 2)
+            k = 0;
+        else
+            k++;
+        
+        fileName = strtok(NULL, "*");
+        g_signal_connect(image_button, "clicked", G_CALLBACK(download_img), userData);
+    }  
+    gtk_container_add(GTK_CONTAINER(window), grid);
+    gtk_window_set_deletable((GtkWindow*)window, FALSE);
+    userData->screenApp->showResultContainer.window = window;
+    gtk_widget_show_all(window);
+    memset(list_img_clients, '\0', strlen(list_img_clients) + 1);
+}
+
+void main_clbk(GtkButton *button, GtkStack *stack) {
+    g_return_if_fail(GTK_IS_BUTTON(button));
+    g_return_if_fail(GTK_IS_STACK(stack));
+
+    gtk_stack_set_visible_child_full(stack, "Main", GTK_STACK_TRANSITION_TYPE_SLIDE_DOWN);
+    g_print("Switching to %s.\n", gtk_stack_get_visible_child_name(stack));
+}
+
+void login_clbk(GtkButton *button, GtkStack *stack) {
+    g_return_if_fail(GTK_IS_BUTTON(button));
+    g_return_if_fail(GTK_IS_STACK(stack));
+
+    gtk_stack_set_visible_child_full(stack, "Login", GTK_STACK_TRANSITION_TYPE_SLIDE_UP);
+    g_print("Switching to %s.\n", gtk_stack_get_visible_child_name(stack));
+}
+
+void enter_login(GtkButton *button, UserData *userData) {
+
+    const gchar *userNameData = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.login_user_name);
+    const gchar *pass = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.login_password);
+    char sign_in_request[1024];
+    char buff[BUFF_SIZE];
+    printf("[+] USERNAME: %s\t PASSWORD: %s\n", userNameData, pass);
+    sprintf(sign_in_request, "%d*%s*%s", LOGIN_REQUEST, userNameData, pass);
+    sendWithCheck(userData->sockFd, sign_in_request, sizeof(sign_in_request));
+    readWithCheck(userData->sockFd, buff, BUFF_SIZE);
+    if (atoi(buff) != LOGIN_SUCCESS) {
+        gtk_widget_show(userData->screenApp->preLoginContainer.label_alert);
+        printf("[-]Login failed!!\n");
+        return;
+    }else {
+        strcpy(userData->username, userNameData);
+        gtk_widget_hide(userData->screenApp->preLoginContainer.window);
+        create_find_window(userData);
+        printf("[+]Login success!!!\n");
+        pthread_t recv_msg_thread;			
+		if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, userData) != 0) {
+			printf("[-]ERROR: pthread\n");
+			exit(EXIT_FAILURE);
 		}
-	}
+    }
 }
 
-// Ham xu li nhan yeu cau cua server phia client - OK
-void recv_msg_handler(int *sock) {
-	int REQUEST;
-	int sockfd = *sock;
-	char recvReq[REQUEST_SIZE];
-	char sendReq[REQUEST_SIZE];
-	int choose;
-	char *fileName, *list_imgs;
+void enter_signUp(GtkButton *button, UserData *userData) {
+    const gchar *userNameData = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.register_user_name);
+    const gchar *pass = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.register_password);
+
+    char sign_in_request[1024];
+    char buff[BUFF_SIZE];
+    printf("USERNAME: %s\t PASSWORD: %s\n", userNameData, pass);
+    sprintf(sign_in_request, "%d*%s*%s", REGISTER_REQUEST, userNameData, pass);
+    sendWithCheck(userData->sockFd, sign_in_request, sizeof(sign_in_request));
+    readWithCheck(userData->sockFd, buff, BUFF_SIZE);
+    if (atoi(buff) == REGISTER_SUCCESS) {
+        printf(FG_GREEN "\n[+]Successful account registration!!!\n");
+        return;
+    }else if(atoi(buff) == EXISTENCE_USERNAME) {
+        printf(FG_GREEN "\n[+]Account registration failed!!!\n");
+        return;
+    }
+}
+
+void register_clbk(GtkButton *button, GtkStack *stack) {
+    g_return_if_fail(GTK_IS_BUTTON(button));
+    g_return_if_fail(GTK_IS_STACK(stack));
+
+    gtk_stack_set_visible_child_full(stack, "Register", GTK_STACK_TRANSITION_TYPE_SLIDE_UP);
+    g_print("Switching to %s.\n", gtk_stack_get_visible_child_name(stack));
+}
+
+void quit_clbk(GtkButton *button, UserData *userData) {
+    g_print("GoodBye\n");
+    sendCode(userData->sockFd, EXIT_SYS);
+    close(userData->sockFd);
+    gtk_main_quit();
+}
+
+void recv_msg_handler(UserData *userData) {
+    int REQUEST;
+	int sockfd = userData->sockFd;
+	char recvReq[1024];
+	char sendReq[1024];
+	char *fileName, *num_cl;
 	while (1) {
 		char message[BUFF_SIZE] = {}; 
 		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
-		char *opcode;
+		if(receive <= 0) {
+            return;
+        }
+        char *opcode;
 		opcode = strtok(recvReq, "*");
 		if (receive > 0) {
 			REQUEST = atoi(opcode);
 			switch (REQUEST) {
 			case FIND_IMG_IN_USERS:
-				printf(FG_GREEN "\n[+}FIND_IMG_IN_USERS\n");
+				printf(FG_GREEN "\n[+]FIND_IMG_IN_USERS\n");
 				fileName = strtok(NULL, "*");
 				char file_path[200];
 				strcpy(file_path, "./client_file/");
@@ -211,62 +503,34 @@ void recv_msg_handler(int *sock) {
 				printf(FG_GREEN"[+]FILENAME_TO_SEARCH : %s \n"NORMAL, fileName);
 				// neu tim thay:
 				if(access(file_path, F_OK) != -1) {
-					sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, user);
+					sprintf(sendReq, "%d*%s", FILE_WAS_FOUND, userData->username);
 					send(sockfd, sendReq, sizeof(sendReq), 0);
 					printf(FG_GREEN"[+]FILE_WAS_FOUND\n"NORMAL);
 					SendFileToServer(sockfd, file_path);
 					printf(FG_GREEN"[+]SEND FILE DONE\n"NORMAL);
 				}else {
-					sprintf(sendReq, "%d*%s", FILE_WAS_NOT_FOUND, user);
+					sprintf(sendReq, "%d*%s", FILE_WAS_NOT_FOUND, userData->username);
 					send(sockfd, sendReq, sizeof(sendReq), 0);
 					memset(sendReq, '\0', strlen(sendReq) + 1);
 				}
+				memset(recvReq, '\0', strlen(recvReq) + 1);
 				memset(file_path, '\0', strlen(file_path) + 1);
-				printf(FG_CYAN "Please enter a name of file > " NORMAL);
-				fflush(stdout);
 				break;
-			case SEND_IMGS_TO_USER:
-				list_imgs = strtok(NULL, "*");
-				while(list_imgs != NULL) {
-					strcpy(user_has_img[num_c], list_imgs);
-					num_c++;
-					list_imgs = strtok(NULL, "*");
-				}
-				printf(FG_CYAN "List of clients with images: \n"NORMAL);
-				printf(FG_MAGENTA ITALIC"0.\tI don't want to download images\n"NORMAL);
-				for(int j = 0; j < num_c; j++) {
-					printf(FG_MAGENTA ITALIC "%d.\t%s\n"NORMAL, j + 1, user_has_img[j]);
-				} 
-				printf(FG_CYAN"PLEASE choose a images to download:\t");
-				fflush(stdout);
-				scanf("%d", &choose);
-				fflush(stdout);
-				if(choose != 0) {
-					sprintf(sendReq, "%d*%s", CHOOSEN_USER, user_has_img[choose - 1]);
-					send(sockfd, sendReq, sizeof(sendReq), 0);
-					sprintf(file_path, "./%s", find_file_name);
-					receiveUploadedFile(sockfd, file_path);
-					memset(sendReq, '\0', strlen(sendReq) + 1);
-				}else {
-					sendCode(sockfd, NOT_CHOOSEN);
-				}
-				recv_sig = 0;
-				num_c = 0;
-				memset(find_file_name, '\0', sizeof(find_file_name));
-				memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
-				printf(FG_CYAN "Please enter a name of file > " );
-				fflush(stdout);
-				break;
+            case SEND_IMGS_TO_USER:
+                fileName = strtok(NULL, "*");
+                sprintf(file_path, "./temporary_image/%s.jpg", fileName);
+                receiveUploadedFile(sockfd, file_path);
+                strcat(list_img_clients, fileName);
+                strcat(list_img_clients, "*");
+                break;
+            case SEND_DONE: 
+                printf("Count file : %d\n", count_file_in_dir("./temporary_image/"));
+                send_done = 1;
+                break;
 			case NO_IMG_FOUND:
-				recv_sig = 0;
+				memset(recvReq, '\0', strlen(recvReq) + 1);
 				printf(FG_RED "No images found!!!\n" ); 
-				memset(find_file_name, '\0', sizeof(find_file_name));
-				memset(user_has_img, '\0', sizeof(user_has_img[0][0]) * 10 * 100);
-				printf(FG_CYAN "Please enter a name of file > " );
-				fflush(stdout);
 				break;
-			case LOGOUT_SUCCESS: 
-				return;
 			default:
 				break;
 			}
@@ -275,49 +539,78 @@ void recv_msg_handler(int *sock) {
 	}
 }
 
-// Gui anh len cho server - OK
-void *SendFileToServer(int new_socket, char fname[50]){
+void download_img(GtkButton *button, UserData *userData) {
+    const gchar *text = gtk_button_get_label(button);
+    char file_path1[1024], file_path2[1024];
+    sprintf(file_path1, "./download_imgs/%s_%s", text, main_message);
+    sprintf(file_path2, "./temporary_image/%s.jpg", text);
+    FILE *fp2 = fopen(file_path2, "r");
+    FILE *fp1 = fopen(file_path1, "w");
+    char buff[1024];
+    while(fread(buff, sizeof(char), 1024, fp2) > 0) {
+        fwrite(buff, sizeof(char), 1024, fp1);
+    }
+    fclose(fp1);
+    fclose(fp2);
+    DIR *d;
+    struct dirent *dir;
+    d = opendir("./temporary_image/");
+    if (d) {
+      while ((dir = readdir(d)) != NULL) {
+          if(dir->d_type == DT_REG) {
+              char file_path[1024];
+              sprintf(file_path, "./temporary_image/%s", dir->d_name);
+            if(remove(file_path) == 0){
+		    	printf("[+] DELETED FILE SUCCESS: %s\n", file_path);
+		    }else{
+		    	printf("[+] DELETED FILE FAILED: %s\n", file_path);
+		    }
+          }
+      }
+      closedir(d);
+    }
+    gtk_widget_hide(userData->screenApp->showResultContainer.window);
+    // userData->screenApp->showResultContainer.window = NULL;
+    gtk_entry_set_text((GtkEntry*)userData->screenApp->findContainer.fileNameEntry, "");
+}
+
+void *SendFileToServer(int new_socket, char fname[50]) {
 	SendFile(new_socket, fname);
 }
 
-// Xu li luong nhan gui - OK
-void navigation(int sock) {
-	int opt1, opt2, opt3;
-	char buffer[100];
-	opt1 = menu1();
-	
-	switch (opt1) {
-	case 1: // Dang ki
-		signUp(sock);
-		break;
-	case 2: // Dang nhap
-		if (signIn(sock) == 1) {
-			pthread_t recv_msg_thread;
-			pthread_t send_msg_thread;
+void find_img(GtkButton *button, UserData *userData) {
+    char send_request[1024];
+    const gchar *message = gtk_entry_get_text((GtkEntry*)userData->screenApp->findContainer.fileNameEntry);
+    sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, userData->username, message);
+    strcpy(main_message, message);
+	sendWithCheck(userData->sockFd, send_request, strlen(send_request) + 1);
+    memset(send_request, '\0', strlen(send_request) + 1);
+    while(1) { 
+        if(send_done == 1) {
+            printf("Da vao while\n");
+            create_show_img_grid(userData);
+            send_done = 0;
+            break;
+        }
+    }
+    // gtk_widget_hide(userData->screenApp->findContainer.window);
+}
 
-			printf(FG_YELLOW "=========== WELCOME TO THE SHARED IMAGE APPLICATION ============\n" );
-			
-			if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, &sock) != 0) {
-				printf("[-]ERROR: pthread\n");
-				exit(EXIT_FAILURE);
-			}
-			
-			if (pthread_create(&send_msg_thread, NULL, (void *)send_msg_handler, &sock) != 0) {
-				printf("[-]ERROR: pthread\n");
-				exit(EXIT_FAILURE);
-			}
+void exitFind(GtkButton *button, UserData *userData) {
+    char send_request[1024];
+    sprintf(send_request, "%d*%s", LOGOUT_REQUEST, userData->username);
+    sendWithCheck(userData->sockFd, send_request, sizeof(send_request));
+    memset(send_request, '\0', strlen(send_request) + 1);
+    readWithCheck(userData->sockFd, send_request, sizeof(send_request));
+    if(atoi(send_request) == LOGOUT_SUCCESS) {
+        gtk_widget_show(userData->screenApp->preLoginContainer.window);
+        gtk_widget_hide(userData->screenApp->findContainer.window);
+        gtk_entry_set_text((GtkEntry*)userData->screenApp->preLoginContainer.login_user_name, "");
+        gtk_entry_set_text((GtkEntry*)userData->screenApp->preLoginContainer.login_password, "");
+    }
+}
 
-			pthread_mutex_lock(&mutex);
-			while(recv_sig == 1) {
-				pthread_cond_wait(&cond, &mutex);
-			}
-			pthread_mutex_unlock(&mutex);
-			pthread_join(recv_msg_thread, NULL);
-		}
-		break;
-	case 3:
-		exit(1);
-	default:
-		break;
-	}
+void initApp(UserData *userData) {
+    printf("init\n");
+    initPreLoginScreen(userData);
 }

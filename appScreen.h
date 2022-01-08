@@ -17,12 +17,13 @@ typedef struct{
 } FindContainer;
 
 typedef struct{
-
+    GtkWidget *window;
 } ShowResultContainer;
 
 typedef struct {
     PreLoginContainer preLoginContainer;
     FindContainer findContainer;
+    ShowResultContainer showResultContainer;
 } ScreenApp;
 
 typedef struct{
