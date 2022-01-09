@@ -8,93 +8,82 @@
 #include <stdlib.h>
 #include "appScreen.h"
 #include "communication_code.h"
+#include <gdk-pixbuf/gdk-pixbuf.h>
 #include "transfer.h"
 #define BUFF_SIZE 100
 
+// pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+// pthread_cond_t cond = PTHREAD_COND_INITIALIZER; 
+
 GtkWidget *label_alert;
-char list_img_clients[1024] = "";
-static int send_done = 0;
+int send_done = 0;
 char main_message[100] = "";
 
 void initApp(UserData *userData);
 
+// ================ CREATE WINDOW =====================
 GtkWidget *createWindow(const gint width, const gint height, const gchar *const title);
 GtkWidget *create_login_box(GtkWidget *stack, UserData *userData);
 GtkWidget *create_stack_box(GtkWidget **stack);
 GtkWidget *create_login_grid(GtkWidget *stack, UserData *userData);
 GtkWidget *create_register_grid(GtkWidget *stack, UserData *userData);
-
 void create_find_window(UserData *userData);
+void initPreLoginScreen(UserData *userData);
 void create_show_img_grid(UserData *userData);
+void load_css(void);
 
+// ================  =====================
+void clicked_clbk(GtkButton *button, GtkStack *stack);
 void login_clbk(GtkButton *button, GtkStack *stack);
 void main_clbk(GtkButton *button, GtkStack *stack);
 void register_clbk(GtkButton *button, GtkStack *stack);
 
+// ================ THREAD ====================
 void recv_msg_handler(UserData *userData);
+void recv_sig_handler(UserData *userData);
 void *SendFileToServer(int new_socket, char *fname);
 
-void clicked_clbk(GtkButton *button, GtkStack *stack);
+// ================ EVENT CLICK =====================
 void download_img(GtkButton *button, UserData *userData);
-void load_css(void);
 void quit_clbk(GtkButton *button, UserData *userData);
 void enter_login(GtkButton *button, UserData *userData);
 void enter_signUp(GtkButton *button, UserData *userData);
-int count_file_in_dir(char *dir_name);
-
 void find_img(GtkButton *button, UserData *userData);
 void exitFind(GtkButton *button, UserData *userData);
+void do_not_download(GtkButton *button, UserData *userData);
 
-int initSocket(char *ip_address, int port, UserData *userData) {
-	int sock = 0;
-	struct sockaddr_in serv_addr;
+// ================  =====================
+int count_file_in_dir(char *dir_name);
+int initSocket(char *ip_address, int port, UserData *userData);
 
-	// Try catch false when connecting
-	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		printf("\n [-]Socket creation error \n");
-		return -1;
-	}
-
-	serv_addr.sin_family = AF_INET;
-	serv_addr.sin_port = htons(port);
-
-	// Convert IPv4 and IPv6 addresses from text to binary form
-	if (inet_pton(AF_INET, ip_address, &serv_addr.sin_addr) <= 0) {
-		printf("\n[-]Invalid address/ Address not supported \n");
-		return -1;
-	}
-
-	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-		printf("\n[-]Connection Failed \n");
-		return -1;
-	}
-    userData->sockFd = sock;
-    return userData->sockFd;
+// =========================================
+void initApp(UserData *userData) {
+    initPreLoginScreen(userData);
 }
 
+// ================ MAIN =====================
 int main(int argc, char *argv[]) {
 
     UserData *userData = (UserData*)malloc(sizeof(UserData));
-    ScreenApp screenApp;
+    userData->screenApp = (ScreenApp*)malloc(sizeof(ScreenApp));
     gtk_init(&argc, &argv);
 
     if ((userData->sockFd = initSocket("127.0.0.1", 5500, userData)) <= 0)
         return userData->sockFd;
 
-    userData->screenApp = &screenApp;
     initApp(userData);
     return 0;
 }
 
 // =============================================
 
+// ================ CREATE WINDOW =====================
+
 void initPreLoginScreen(UserData *userData) {
-
     GtkWidget *window;
-    GtkWidget *login_box;  // 3 nutg
-    GtkWidget *login_grid; //
+    GtkWidget *login_box;  
+    GtkWidget *login_grid;
     GtkWidget *register_grid;
-
     GtkWidget *stack_box;
     GtkWidget *stack;
 
@@ -307,13 +296,13 @@ GtkWidget *create_stack_box(GtkWidget **stack) {
 }
 
 void create_find_window(UserData *userData) {
-
     GtkWidget *window;
     GtkWidget *fileNameLabel;
     GtkWidget *fileNameEntry;
     GtkWidget *box;
     GtkWidget *findBtn;
-    GtkWidget *exitBtn;
+    GtkWidget *logOutBtn;
+    GtkWidget *close_button;
     load_css();
     window = createWindow(500, 400, "SHARE IMAGE APPPICATION");
     fileNameLabel = gtk_label_new("File name");
@@ -324,36 +313,23 @@ void create_find_window(UserData *userData) {
     userData->screenApp->findContainer.fileNameEntry = fileNameEntry;
 
     findBtn = gtk_button_new_with_label("Find");
-    exitBtn = gtk_button_new_with_label("LOG_OUT");
+    logOutBtn = gtk_button_new_with_label("LOG_OUT");
+    close_button = gtk_button_new_with_label("EXIT");
 
     box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 20);
     gtk_box_pack_start(GTK_BOX(box), fileNameLabel, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(box), fileNameEntry, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(box), findBtn, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(box), exitBtn, FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(box), logOutBtn, FALSE, FALSE, 0);
 
     gtk_container_add(GTK_CONTAINER(window), box);
     userData->screenApp->findContainer.window = window;
-    gtk_widget_show_all(window);
     gtk_window_set_deletable((GtkWindow*)window, FALSE);
-    g_signal_connect(findBtn,"clicked",G_CALLBACK(find_img), userData);
-    g_signal_connect(exitBtn, "clicked", G_CALLBACK(exitFind), userData);
-}
+    gtk_widget_show_all(window);
 
-int count_file_in_dir(char *dir_name) {
-    int count = 0;
-    DIR *d;
-    struct dirent *dir;
-    d = opendir("./temporary_image/");
-    if (d) {
-      while ((dir = readdir(d)) != NULL) {
-          if(dir->d_type == DT_REG) {
-            count++;
-          }
-      }
-      closedir(d);
-    }
-    return count;
+    g_signal_connect(findBtn,"clicked",G_CALLBACK(find_img), userData);
+    g_signal_connect(logOutBtn, "clicked", G_CALLBACK(exitFind), userData);
+    g_signal_connect(close_button, "clicked", G_CALLBACK(exitFind), userData);
 }
 
 void create_show_img_grid(UserData *userData) {
@@ -362,8 +338,20 @@ void create_show_img_grid(UserData *userData) {
     grid = gtk_grid_new();
     gtk_grid_set_column_spacing((GtkGrid *)grid, 10);
     int k = 0, m = 0, count_img = count_file_in_dir("./temporary_image/");
-    char file_path[200];
-    printf("LIST CREAT : %s\n", list_img_clients);
+    char list_img_clients[1024] = "";
+    DIR *d;
+    struct dirent *dir;
+    d = opendir("./temporary_image/");
+    if (d) {
+      while ((dir = readdir(d)) != NULL) {
+          if(dir->d_type == DT_REG) {
+            strcat(list_img_clients, dir->d_name);
+            strcat(list_img_clients, "*");
+          }
+      }
+      closedir(d);
+    }
+    printf("LIST IMGS: %s\tCOUNT: %d\n", list_img_clients, count_img);
     char *fileName = strtok(list_img_clients, "*");
     GtkWidget *not_download = gtk_button_new_with_label("I DON'T WANT DOWNLOAD IMG");
     for (int i = 0; i <= count_img; i++) {
@@ -374,11 +362,13 @@ void create_show_img_grid(UserData *userData) {
         GdkPixbuf *pb;
         GtkWidget *image;
         GtkWidget *image_button;
-        gchar name[50];
-        sprintf(name, "%s", fileName);
-        image_button = gtk_button_new_with_label(name);
-        strcpy(file_path, "");
-        sprintf(file_path, "./temporary_image/%s.jpg", fileName);
+        gchar *name;
+        char file_path[200];
+        // strcpy(name, fileName);
+        image_button = gtk_button_new_with_label("IMAGE");
+        sprintf(file_path, "./temporary_image/%s", fileName);
+        printf("FILE_PATH: %s\n", file_path);
+        printf("SEND_DONE = %d\n", send_done);
         pb = gdk_pixbuf_new_from_file(file_path, NULL);
         pb = gdk_pixbuf_scale_simple(pb, 100, 100, GDK_INTERP_BILINEAR);
         image = gtk_image_new_from_pixbuf(gdk_pixbuf_copy(pb));
@@ -392,13 +382,17 @@ void create_show_img_grid(UserData *userData) {
         
         fileName = strtok(NULL, "*");
         g_signal_connect(image_button, "clicked", G_CALLBACK(download_img), userData);
+        g_signal_connect(not_download, "clicked", G_CALLBACK(do_not_download), userData);
     }  
     gtk_container_add(GTK_CONTAINER(window), grid);
     gtk_window_set_deletable((GtkWindow*)window, FALSE);
     userData->screenApp->showResultContainer.window = window;
     gtk_widget_show_all(window);
-    memset(list_img_clients, '\0', strlen(list_img_clients) + 1);
 }
+
+// ================ END CREATE WINDOW =====================
+
+// ================  =====================
 
 void main_clbk(GtkButton *button, GtkStack *stack) {
     g_return_if_fail(GTK_IS_BUTTON(button));
@@ -416,52 +410,6 @@ void login_clbk(GtkButton *button, GtkStack *stack) {
     g_print("Switching to %s.\n", gtk_stack_get_visible_child_name(stack));
 }
 
-void enter_login(GtkButton *button, UserData *userData) {
-
-    const gchar *userNameData = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.login_user_name);
-    const gchar *pass = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.login_password);
-    char sign_in_request[1024];
-    char buff[BUFF_SIZE];
-    printf("[+] USERNAME: %s\t PASSWORD: %s\n", userNameData, pass);
-    sprintf(sign_in_request, "%d*%s*%s", LOGIN_REQUEST, userNameData, pass);
-    sendWithCheck(userData->sockFd, sign_in_request, sizeof(sign_in_request));
-    readWithCheck(userData->sockFd, buff, BUFF_SIZE);
-    if (atoi(buff) != LOGIN_SUCCESS) {
-        gtk_widget_show(userData->screenApp->preLoginContainer.label_alert);
-        printf("[-]Login failed!!\n");
-        return;
-    }else {
-        strcpy(userData->username, userNameData);
-        gtk_widget_hide(userData->screenApp->preLoginContainer.window);
-        create_find_window(userData);
-        printf("[+]Login success!!!\n");
-        pthread_t recv_msg_thread;			
-		if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, userData) != 0) {
-			printf("[-]ERROR: pthread\n");
-			exit(EXIT_FAILURE);
-		}
-    }
-}
-
-void enter_signUp(GtkButton *button, UserData *userData) {
-    const gchar *userNameData = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.register_user_name);
-    const gchar *pass = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.register_password);
-
-    char sign_in_request[1024];
-    char buff[BUFF_SIZE];
-    printf("USERNAME: %s\t PASSWORD: %s\n", userNameData, pass);
-    sprintf(sign_in_request, "%d*%s*%s", REGISTER_REQUEST, userNameData, pass);
-    sendWithCheck(userData->sockFd, sign_in_request, sizeof(sign_in_request));
-    readWithCheck(userData->sockFd, buff, BUFF_SIZE);
-    if (atoi(buff) == REGISTER_SUCCESS) {
-        printf(FG_GREEN "\n[+]Successful account registration!!!\n");
-        return;
-    }else if(atoi(buff) == EXISTENCE_USERNAME) {
-        printf(FG_GREEN "\n[+]Account registration failed!!!\n");
-        return;
-    }
-}
-
 void register_clbk(GtkButton *button, GtkStack *stack) {
     g_return_if_fail(GTK_IS_BUTTON(button));
     g_return_if_fail(GTK_IS_STACK(stack));
@@ -470,12 +418,9 @@ void register_clbk(GtkButton *button, GtkStack *stack) {
     g_print("Switching to %s.\n", gtk_stack_get_visible_child_name(stack));
 }
 
-void quit_clbk(GtkButton *button, UserData *userData) {
-    g_print("GoodBye\n");
-    sendCode(userData->sockFd, EXIT_SYS);
-    close(userData->sockFd);
-    gtk_main_quit();
-}
+// ================ END =====================
+
+// ================ THREAD =====================
 
 void recv_msg_handler(UserData *userData) {
     int REQUEST;
@@ -486,6 +431,7 @@ void recv_msg_handler(UserData *userData) {
 	while (1) {
 		char message[BUFF_SIZE] = {}; 
 		int receive = readWithCheck(sockfd, recvReq, REQUEST_SIZE);
+        printf("RECV MESSAGE: %s\n", recvReq);
 		if(receive <= 0) {
             return;
         }
@@ -516,16 +462,14 @@ void recv_msg_handler(UserData *userData) {
 				memset(recvReq, '\0', strlen(recvReq) + 1);
 				memset(file_path, '\0', strlen(file_path) + 1);
 				break;
+            case SEND_DONE: 
+                printf("Count file : %d\n", count_file_in_dir("./temporary_image/"));
+                send_done = 1;
+                break;
             case SEND_IMGS_TO_USER:
                 fileName = strtok(NULL, "*");
                 sprintf(file_path, "./temporary_image/%s.jpg", fileName);
                 receiveUploadedFile(sockfd, file_path);
-                strcat(list_img_clients, fileName);
-                strcat(list_img_clients, "*");
-                break;
-            case SEND_DONE: 
-                printf("Count file : %d\n", count_file_in_dir("./temporary_image/"));
-                send_done = 1;
                 break;
 			case NO_IMG_FOUND:
 				memset(recvReq, '\0', strlen(recvReq) + 1);
@@ -537,6 +481,91 @@ void recv_msg_handler(UserData *userData) {
 		}else if (receive == 0) {
 		}
 	}
+}
+
+void recv_sig_handler(UserData *userData) {
+    printf("[+]SEND_DONE = %d\n", send_done);
+    while(1) {
+        if(send_done == 1) {
+            create_show_img_grid(userData);
+            // gtk_widget_hide(userData->screenApp->findContainer.window);
+            send_done = 0;
+        }
+    }
+}
+
+void *SendFileToServer(int new_socket, char fname[50]) {
+	SendFile(new_socket, fname);
+}
+
+// ================ END THREAD=====================
+
+// ================ EVENT CLICK =====================
+
+void enter_login(GtkButton *button, UserData *userData) {
+    const gchar *userNameData = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.login_user_name);
+    const gchar *pass = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.login_password);
+    char sign_in_request[1024];
+    char buff[BUFF_SIZE];
+    printf("[+] USERNAME: %s\t PASSWORD: %s\n", userNameData, pass);
+    sprintf(sign_in_request, "%d*%s*%s", LOGIN_REQUEST, userNameData, pass);
+    sendWithCheck(userData->sockFd, sign_in_request, sizeof(sign_in_request));
+    readWithCheck(userData->sockFd, buff, BUFF_SIZE);
+    if (atoi(buff) != LOGIN_SUCCESS) {
+        gtk_widget_show(userData->screenApp->preLoginContainer.label_alert);
+        printf("[-]Login failed!!\n");
+        return;
+    }else {
+        strcpy(userData->username, userNameData);
+        gtk_widget_hide(userData->screenApp->preLoginContainer.window);
+        create_find_window(userData);
+        printf("[+]Login success!!!\n");
+        pthread_t recv_msg_thread;			
+		if (pthread_create(&recv_msg_thread, NULL, (void *)recv_msg_handler, userData) != 0) {
+			printf("[-]ERROR: pthread\n");
+			exit(EXIT_FAILURE);
+		}
+
+        // pthread_t recv_sig_thread;
+        // if (pthread_create(&recv_sig_thread, NULL, (void *)recv_sig_handler, userData) != 0) {
+        // 	printf("[-]ERROR: pthread\n");
+        // 	exit(EXIT_FAILURE);
+        // }
+
+        // pthread_t recv_sig_thread;
+        // if (pthread_create(&recv_sig_thread, NULL, (void *)recv_sig_handler, userData) != 0) {
+        // 	printf("[-]ERROR: pthread\n");
+        // 	exit(EXIT_FAILURE);
+        // }
+    }
+}
+
+void enter_signUp(GtkButton *button, UserData *userData) {
+    const gchar *userNameData = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.register_user_name);
+    const gchar *pass = gtk_entry_get_text((GtkEntry *)userData->screenApp->preLoginContainer.register_password);
+
+    char sign_in_request[1024];
+    char buff[BUFF_SIZE];
+    printf("USERNAME: %s\t PASSWORD: %s\n", userNameData, pass);
+    sprintf(sign_in_request, "%d*%s*%s", REGISTER_REQUEST, userNameData, pass);
+    sendWithCheck(userData->sockFd, sign_in_request, sizeof(sign_in_request));
+    readWithCheck(userData->sockFd, buff, BUFF_SIZE);
+    if (atoi(buff) == REGISTER_SUCCESS) {
+        printf(FG_GREEN "\n[+]Successful account registration!!!\n");
+        return;
+    }else if(atoi(buff) == EXISTENCE_USERNAME) {
+        printf(FG_GREEN "\n[+]Account registration failed!!!\n");
+        return;
+    }
+}
+
+void quit_clbk(GtkButton *button, UserData *userData) {
+    g_print("GoodBye\n");
+    char send_request[1024];
+    sprintf(send_request, "%d*%s", EXIT_SYS, userData->username);
+    sendWithCheck(userData->sockFd, send_request, sizeof(send_request));
+    memset(send_request, '\0', strlen(send_request) + 1);
+    gtk_main_quit();
 }
 
 void download_img(GtkButton *button, UserData *userData) {
@@ -574,26 +603,54 @@ void download_img(GtkButton *button, UserData *userData) {
     gtk_entry_set_text((GtkEntry*)userData->screenApp->findContainer.fileNameEntry, "");
 }
 
-void *SendFileToServer(int new_socket, char fname[50]) {
-	SendFile(new_socket, fname);
+void do_not_download(GtkButton *button, UserData *userData) {
+    DIR *d;
+    struct dirent *dir;
+    d = opendir("./temporary_image/");
+    if (d) {
+      while ((dir = readdir(d)) != NULL) {
+          if(dir->d_type == DT_REG) {
+              char file_path[1024];
+              sprintf(file_path, "./temporary_image/%s", dir->d_name);
+            if(remove(file_path) == 0){
+		    	printf("[+] DELETED FILE SUCCESS: %s\n", file_path);
+		    }else{
+		    	printf("[+] DELETED FILE FAILED: %s\n", file_path);
+		    }
+          }
+      }
+      closedir(d);
+    }
+    gtk_widget_hide(userData->screenApp->showResultContainer.window);
+    gtk_widget_show(userData->screenApp->findContainer.window);
+    gtk_entry_set_text((GtkEntry*)userData->screenApp->findContainer.fileNameEntry, "");
 }
 
 void find_img(GtkButton *button, UserData *userData) {
     char send_request[1024];
     const gchar *message = gtk_entry_get_text((GtkEntry*)userData->screenApp->findContainer.fileNameEntry);
-    sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, userData->username, message);
-    strcpy(main_message, message);
-	sendWithCheck(userData->sockFd, send_request, strlen(send_request) + 1);
-    memset(send_request, '\0', strlen(send_request) + 1);
-    while(1) { 
-        if(send_done == 1) {
-            printf("Da vao while\n");
-            create_show_img_grid(userData);
-            send_done = 0;
-            break;
+    if(strlen(message) > 0) {
+        sprintf(send_request, "%d*%s*%s", FIND_IMG_REQUEST, userData->username, message);
+        strcpy(main_message, message);
+	    sendWithCheck(userData->sockFd, send_request, strlen(send_request) + 1);
+        memset(send_request, '\0', strlen(send_request) + 1);
+
+        pthread_t recv_sig_thread;
+        if (pthread_create(&recv_sig_thread, NULL, (void *)recv_sig_handler, userData) != 0) {
+        	printf("[-]ERROR: pthread\n");
+        	exit(EXIT_FAILURE);
         }
+        
+        // while(1) { 
+        //     if(send_done == 1) {
+        //         printf("Da vao while\n");
+        //         create_show_img_grid(userData);
+        //         gtk_widget_hide(userData->screenApp->findContainer.window);
+        //         send_done = 0;
+        //         break;
+        //     }
+        // }
     }
-    // gtk_widget_hide(userData->screenApp->findContainer.window);
 }
 
 void exitFind(GtkButton *button, UserData *userData) {
@@ -610,7 +667,47 @@ void exitFind(GtkButton *button, UserData *userData) {
     }
 }
 
-void initApp(UserData *userData) {
-    printf("init\n");
-    initPreLoginScreen(userData);
+// ================ END EVENT CLICK =====================
+
+int count_file_in_dir(char *dir_name) {
+    int count = 0;
+    DIR *d;
+    struct dirent *dir;
+    d = opendir("./temporary_image/");
+    if (d) {
+      while ((dir = readdir(d)) != NULL) {
+          if(dir->d_type == DT_REG) {
+            count++;
+          }
+      }
+      closedir(d);
+    }
+    return count;
+}
+
+int initSocket(char *ip_address, int port, UserData *userData) {
+	int sock = 0;
+	struct sockaddr_in serv_addr;
+
+	// Try catch false when connecting
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		printf("\n [-]Socket creation error \n");
+		return -1;
+	}
+
+	serv_addr.sin_family = AF_INET;
+	serv_addr.sin_port = htons(port);
+
+	// Convert IPv4 and IPv6 addresses from text to binary form
+	if (inet_pton(AF_INET, ip_address, &serv_addr.sin_addr) <= 0) {
+		printf("\n[-]Invalid address/ Address not supported \n");
+		return -1;
+	}
+
+	if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+		printf("\n[-]Connection Failed \n");
+		return -1;
+	}
+    userData->sockFd = sock;
+    return userData->sockFd;
 }

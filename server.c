@@ -21,6 +21,7 @@ int count_write = 0;
 char list_client[10][100];
 char list_clients_img[REQUEST_SIZE] = "";
 char main_name[BUFF_SIZE] = "";
+int num_connect = 0;
 
 singleList groups, files, users;
 
@@ -244,7 +245,7 @@ void send_message_to_sender() {
 				memset(send_request, '\0', strlen(send_request) + 1);
 			}
 			sendCode(clients[i]->sockfd, SEND_DONE);
-			printf("[+]SEND TO SENDER DONE\n");
+			printf("[+]SEND TO %s DONE\n", clients[i]->name);
 			memset(list_clients_img, '\0', sizeof(list_clients_img));
 			memset(list_client, '\0', sizeof(list_client[0][0]) * 10 * 100);
 			break;
@@ -269,7 +270,10 @@ void *handleThread(void *my_sock) {
 	while (1) {
 		int n = readWithCheck(new_socket, buff, 1024);
 		if(n <= 0 || strlen(buff) == 0) {
-			continue;
+			printf("Close request from sockfd = %d\n", new_socket);
+			close(new_socket);
+			num_connect--;
+			return NULL;
 		}
 		char *opcode = strtok(buff, "*");
 		REQUEST = atoi(buff);
@@ -325,7 +329,6 @@ void *handleThread(void *my_sock) {
 							send_message_to_sender();
 							count_send = count_write = 0;
 						}
-						memset(file_path, '\0', strlen(file_path) + 1);
 						memset(buff, '\0', strlen(buff) + 1);
 						break;
 					case FILE_WAS_NOT_FOUND:
@@ -352,6 +355,8 @@ void *handleThread(void *my_sock) {
 			}
 			break;
 		case EXIT_SYS:
+			close(new_socket);
+			printf("Close request from sockfd = %d\n", new_socket);
 			break;
 		default:
 			break;
@@ -410,6 +415,12 @@ int main(int argc, char *argv[]) {
 		}
 		printf("New request from sockfd = %d.\n", new_socket);
 		pthread_create(&tid, NULL, &handleThread, &new_socket);
+		num_connect++;
+		if(num_connect == 0){ 
+			close(new_socket);
+			printf("Close request from sockfd = %d\n", new_socket);
+			return 0;
+		}
 	}
 	close(server_fd);
 	return 0;

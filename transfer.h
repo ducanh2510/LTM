@@ -83,8 +83,6 @@ void *SendFile(int new_socket, char *fname) {
 
 // Ham nhan file va ghi file vao thu muc chua - OK
 int receiveUploadedFile(int sock, char filePath[200]) {
-	int bytesReceived = 0;
-	char recvBuff[1024];
 	FILE *fp;
 	printf(FG_GREEN "[+]Receiving file..." NORMAL "\n");
 	fp = fopen(filePath, "wb");
@@ -103,15 +101,21 @@ int receiveUploadedFile(int sock, char filePath[200]) {
 			perror("[-]Receive File Error");
 			exit(1);
 		}
+		if (total + n >= sizeFileRecv) {
+			n = sizeFileRecv - total;
+		}
 		if (fwrite(buff, sizeof(char), n, fp) != n) {
 			perror("[-]Write File Error");
 			exit(1);
 		}
 		total += n;
 		memset(buff, '\0', 1024);
-		if (total >= sizeFileRecv) {
+		if(total == sizeFileRecv) {
 			break;
 		}
+		// if (total >= sizeFileRecv) {
+		// 	break;
+		// }
 	}
 	printf(FG_GREEN "[+]File OK....Completed" NORMAL "\n");
 	printf(FG_GREEN "[+]TOTAL RECV: %d\n" NORMAL, total);
