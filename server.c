@@ -248,6 +248,7 @@ void send_message_to_sender() {
 			printf("[+]SEND TO %s DONE\n", clients[i]->name);
 			memset(list_clients_img, '\0', sizeof(list_clients_img));
 			memset(list_client, '\0', sizeof(list_client[0][0]) * 10 * 100);
+			free(client_has_img);
 			break;
 		}
 	}
@@ -272,7 +273,6 @@ void *handleThread(void *my_sock) {
 		if(n <= 0 || strlen(buff) == 0) {
 			printf("Close request from sockfd = %d\n", new_socket);
 			close(new_socket);
-			num_connect--;
 			return NULL;
 		}
 		char *opcode = strtok(buff, "*");
@@ -284,8 +284,10 @@ void *handleThread(void *my_sock) {
 			printf("[+]REGISTER_REQUEST\n");
 			signUp(new_socket, &users, name, pass);
 			saveUsers(users);
-			memset(name, '\0', strlen(name) + 1);
-			memset(pass, '\0', strlen(pass) + 1);
+			name = NULL;
+			pass = NULL;
+			// memset(name, '\0', strlen(name) + 1);
+			// memset(pass, '\0', strlen(pass) + 1);
 			break;
 		case LOGIN_REQUEST:
 			// nhan username va password
@@ -310,7 +312,8 @@ void *handleThread(void *my_sock) {
 						send_message(username, filename);
 						count_send = num_client - 1;
 						printf("[+]SEND TO ALL : %s\n", filename);
-						memset(username, '\0', strlen(username) + 1);
+						// memset(username, '\0', strlen(username) + 1);
+						username = NULL;
 						memset(buff, '\0', strlen(buff) + 1);
 						break;
 					case FILE_WAS_FOUND:
@@ -351,13 +354,16 @@ void *handleThread(void *my_sock) {
 					default:
 						break;
 					}
+					username = NULL;
+					filename = NULL;
 				}
 			}
 			break;
 		case EXIT_SYS:
 			close(new_socket);
+			num_connect--;
 			printf("Close request from sockfd = %d\n", new_socket);
-			break;
+			return NULL;
 		default:
 			break;
 		}
@@ -413,9 +419,9 @@ int main(int argc, char *argv[]) {
 			perror("[-]Accept");
 			exit(EXIT_FAILURE);
 		}
+		num_connect++;
 		printf("New request from sockfd = %d.\n", new_socket);
 		pthread_create(&tid, NULL, &handleThread, &new_socket);
-		num_connect++;
 		if(num_connect == 0){ 
 			close(new_socket);
 			printf("Close request from sockfd = %d\n", new_socket);

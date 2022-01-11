@@ -28,6 +28,7 @@ typedef struct {
 
 typedef struct{
     ScreenApp *screenApp;
+    GtkWidget *stack_box;
     int sockFd;
     char username[50];
 } UserData;
