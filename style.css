@@ -8,6 +8,7 @@ entry
     background:         gray;
     color:              white;
     font-size:          15px;
+    min-width: 200px;
 }
 
 label
@@ -23,6 +24,8 @@ button
     border-color:       black;
     box-shadow:         none;
     margin:             10px;
+    min-width: 80px;
+    min-height: 30px;
 }
 
 button:hover
