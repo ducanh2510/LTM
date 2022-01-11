@@ -5,7 +5,7 @@ all:
 	gcc -o server server.c linked_list.h -pthread
 s:
 	clear
-	./server 9000
+	./server 8888
 c:
 	clear
 	./client

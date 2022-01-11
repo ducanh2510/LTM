@@ -237,11 +237,11 @@ void send_message_to_sender() {
 				send(clients[i]->sockfd, send_request, sizeof(send_request), 0);
 				SendFileToClient(clients[i]->sockfd, file_path);
 				printf("SEND_MESSAGE: %s\n", send_request);
-				if(remove(file_path) == 0){
-					printf("[+] DELETED FILE SUCCESS: %s\n", file_path);
-				}else{
-					printf("[-] DELETED FILE FAILED: %s\n", file_path);
-				}
+				// if(remove(file_path) == 0){
+				// 	printf("[+] DELETED FILE SUCCESS: %s\n", file_path);
+				// }else{
+				// 	printf("[-] DELETED FILE FAILED: %s\n", file_path);
+				// }
 				memset(send_request, '\0', strlen(send_request) + 1);
 			}
 			sendCode(clients[i]->sockfd, SEND_DONE);

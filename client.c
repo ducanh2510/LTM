@@ -16,7 +16,7 @@
 // pthread_cond_t cond = PTHREAD_COND_INITIALIZER; 
 
 GtkWidget *label_alert;
-int send_done = 0;
+// int send_done = 0;
 char main_message[100] = "";
 
 void freeVar();
@@ -31,10 +31,11 @@ GtkWidget *create_login_grid(GtkWidget *stack, UserData *userData);
 GtkWidget *create_register_grid(GtkWidget *stack, UserData *userData);
 GtkWidget *create_find_box(GtkWidget *stack, UserData *userData);
 GtkWidget *create_find_grid(GtkWidget *stack, UserData *userData);
-GtkWidget *create_show_grid(GtkWidget *stack, UserData *userData);
+GtkWidget *create_show_img_downloaded_grid(GtkWidget *stack, UserData *userData);
 void create_home_window(UserData *userData);
 void initPreLoginScreen(UserData *userData);
-GtkWidget* create_show_img_grid(UserData *userData);
+void create_show_img_grid(UserData *userData);
+GtkWidget* create_show_img_to_download_grid(GtkWidget *stack, UserData *userData);
 void load_css(void);
 
 // ================  =====================
@@ -83,7 +84,7 @@ int main(int argc, char *argv[]) {
     userData->screenApp = (ScreenApp*)malloc(sizeof(ScreenApp));
     gtk_init(&argc, &argv);
 
-    if ((userData->sockFd = initSocket("127.0.0.1", 9000, userData)) <= 0)
+    if ((userData->sockFd = initSocket("127.0.0.1", 8888, userData)) <= 0)
         return userData->sockFd;
 
     initApp(userData);
@@ -344,22 +345,24 @@ GtkWidget *create_find_grid(GtkWidget *stack, UserData *userData) {
 
     backBtn = gtk_button_new_with_label("Back");
     findBtn = gtk_button_new_with_label("Find");
+    show_temp_btn = gtk_button_new_with_label("DOWNLOAD IMG");
 
     gtk_grid_attach(GTK_GRID(grid), fileNameLabel, 0, 0, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), fileNameEntry, 0, 1, 1, 1);
     gtk_grid_attach(GTK_GRID(grid), findBtn, 0, 2, 1, 1);
-    gtk_grid_attach(GTK_GRID(grid), backBtn, 0, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), show_temp_btn, 0, 3, 1, 1);
+    gtk_grid_attach(GTK_GRID(grid), backBtn, 0, 4, 1, 1);
 
     gtk_grid_set_row_spacing((GtkGrid *)grid, 10);
 
     g_signal_connect(findBtn, "clicked", G_CALLBACK(find_img), userData);
     g_signal_connect(backBtn, "clicked", G_CALLBACK(back_clbk), stack);
+    g_signal_connect(show_temp_btn, "clicked", G_CALLBACK(create_show_img_grid), userData);
 
     return grid;
 }
 
-// TODO
-GtkWidget *create_show_grid(GtkWidget *stack, UserData *userData) {
+GtkWidget *create_show_img_downloaded_grid(GtkWidget *stack, UserData *userData) {
     GtkWidget *grid, *image, *image_button, *not_download, *back_btn;
     GdkPixbuf *pb;
     gtk_init(NULL, NULL);
@@ -384,9 +387,10 @@ GtkWidget *create_show_grid(GtkWidget *stack, UserData *userData) {
     printf("LIST IMGS: %s\tCOUNT: %d\n", list_img_clients, count_img);
     char *fileName = strtok(list_img_clients, "*");
     for (int i = 0; i <= count_img; i++) {
-        // if(i == count_img) {
-        //     gtk_grid_attach(GTK_GRID(grid), back_btn, count_img, count_img, 1, 1);
-        // }
+        if(i == count_img) {
+            gtk_grid_attach(GTK_GRID(grid), back_btn, count_img, count_img, 1, 1);
+            break;
+        }
         gchar name[50];
         char file_path[200];
         sprintf(name, "%s%d", "Image", i);
@@ -404,7 +408,7 @@ GtkWidget *create_show_grid(GtkWidget *stack, UserData *userData) {
             k++;
         fileName = strtok(NULL, "*");
     }
-    // g_signal_connect(back_btn, "clicked", G_CALLBACK(back_clbk), stack);
+    g_signal_connect(back_btn, "clicked", G_CALLBACK(back_clbk), stack);
     return grid;
 }
 
@@ -419,8 +423,8 @@ void create_home_window(UserData *userData) {
 
     find_box = create_find_box(stack, userData);
     find_grid = create_find_grid(stack, userData);
-    show_grid = create_show_grid(stack, userData);
-    show_list_img_to_download = create_show_img_grid(userData);
+    show_grid = create_show_img_downloaded_grid(stack, userData);
+    show_list_img_to_download = create_show_img_to_download_grid(stack, userData);
 
     gtk_stack_add_named(GTK_STACK(stack), find_box, "Main_find");
     gtk_stack_add_named(GTK_STACK(stack), find_grid, "Find");
@@ -432,13 +436,72 @@ void create_home_window(UserData *userData) {
     gtk_stack_set_interpolate_size(GTK_STACK(stack), TRUE);
 
     userData->screenApp->findContainer.window = window;
-    userData->stack_box = stack_box;
 
     gtk_window_set_deletable((GtkWindow*)window, FALSE);
     gtk_widget_show_all(window);
 }
 
-GtkWidget* create_show_img_grid(UserData *userData) {
+void create_show_img_grid(UserData *userData) {
+    GtkWidget *grid, *window;
+    window = createWindow(500, 400, "SHARE IMAGE APPPICATION");
+    grid = gtk_grid_new();
+    gtk_grid_set_column_spacing((GtkGrid *)grid, 10);
+    int k = 0, m = 0, count_img = count_file_in_dir("./temporary_image/");
+    char list_img_clients[1024] = "";
+    DIR *d;
+    struct dirent *dir;
+    d = opendir("./temporary_image/");
+    if (d) {
+      while ((dir = readdir(d)) != NULL) {
+          if(dir->d_type == DT_REG) {
+            strcat(list_img_clients, dir->d_name);
+            strcat(list_img_clients, "*");
+          }
+      }
+      closedir(d);
+    }
+    printf("LIST IMGS: %s\tCOUNT: %d\n", list_img_clients, count_img);
+
+    char *fileName = strtok(list_img_clients, "*");
+    GtkWidget *not_download = gtk_button_new_with_label("I DON'T WANT DOWNLOAD IMG");
+    for (int i = 0; i <= count_img; i++) {
+        if( i == count_img) {
+            gtk_grid_attach(GTK_GRID(grid), not_download, count_img, count_img, 1, 1);
+            break;
+        }
+        GdkPixbuf *pb;
+        GtkWidget *image;
+        GtkWidget *image_button;
+        gchar *name;
+        char file_path[200];
+        // strcpy(name, fileName);
+        // image_button = gtk_button_new_with_label(name);
+        image_button = gtk_button_new_with_label("viet");
+
+        sprintf(file_path, "./temporary_image/%s", fileName);
+        printf("FILE_PATH: %s\n", file_path);
+        pb = gdk_pixbuf_new_from_file(file_path, NULL);
+        pb = gdk_pixbuf_scale_simple(pb, 100, 100, GDK_INTERP_BILINEAR);
+        image = gtk_image_new_from_pixbuf(gdk_pixbuf_copy(pb));
+        gtk_image_set_from_pixbuf(GTK_IMAGE(image), pb);
+        gtk_grid_attach(GTK_GRID(grid), image, k, (i / 3) * 2, 1, 1);
+        gtk_grid_attach(GTK_GRID(grid), image_button, k, (i / 3) * 2 + 1, 1, 1);
+        if (k == 2)
+            k = 0;
+        else
+            k++;
+        
+        fileName = strtok(NULL, "*");
+        g_signal_connect(image_button, "clicked", G_CALLBACK(download_img), userData);
+        g_signal_connect(not_download, "clicked", G_CALLBACK(do_not_download), userData);
+    }  
+    gtk_container_add(GTK_CONTAINER(window), grid);
+    gtk_window_set_deletable((GtkWindow*)window, FALSE);
+    userData->screenApp->showResultContainer.window = window;
+    gtk_widget_show_all(window);
+}
+
+GtkWidget* create_show_img_to_download_grid(GtkWidget *stack, UserData *userData) {
     GtkWidget *grid, *image, *image_button, *not_download;
     GdkPixbuf *pb;
     gtk_init(NULL, NULL);
@@ -462,11 +525,15 @@ GtkWidget* create_show_img_grid(UserData *userData) {
     }
     printf("LIST IMGS: %s\tCOUNT: %d\n", list_img_clients, count_img);
     char *fileName = strtok(list_img_clients, "*");
-    for (int i = 0; i < count_img; i++) {
+    for (int i = 0; i <= count_img; i++) {
+        if(i == count_img) {
+            gtk_grid_attach(GTK_GRID(grid), not_download, count_img, count_img, 1, 1);
+            break;
+        }
         gchar name[50];
         sprintf(name, "%s%d", "Image", i);
         image_button = gtk_button_new_with_label(name);
-        pb = gdk_pixbuf_new_from_file("user.png", NULL);
+        pb = gdk_pixbuf_new_from_file("./client_file/iu.jpg", NULL);
         pb = gdk_pixbuf_scale_simple(pb, 100, 100, GDK_INTERP_BILINEAR);
         image = gtk_image_new_from_pixbuf(gdk_pixbuf_copy(pb));
         gtk_image_set_from_pixbuf(GTK_IMAGE(image), pb);
@@ -476,9 +543,9 @@ GtkWidget* create_show_img_grid(UserData *userData) {
             k = 0;
         else
             k++;
-        char *fileName = strtok(NULL, "*");
+        fileName = strtok(NULL, "*");
         g_signal_connect(image_button, "clicked", G_CALLBACK(download_img), userData);
-        g_signal_connect(not_download, "clicked", G_CALLBACK(do_not_download), userData);
+        g_signal_connect(not_download, "clicked", G_CALLBACK(find_action_clbk), stack);
     }
     return grid;
 }
@@ -584,40 +651,41 @@ void recv_msg_handler(UserData *userData) {
 					send(sockfd, sendReq, sizeof(sendReq), 0);
 					memset(sendReq, '\0', strlen(sendReq) + 1);
 				}
-				memset(recvReq, '\0', strlen(recvReq) + 1);
 				memset(file_path, '\0', strlen(file_path) + 1);
 				break;
             case SEND_DONE: 
                 printf("Count file : %d\n", count_file_in_dir("./temporary_image/"));
-                send_done = 1;
+                // send_done = 1;
                 break;
             case SEND_IMGS_TO_USER:
                 fileName = strtok(NULL, "*");
+                printf("1\n");
                 sprintf(file_path, "./temporary_image/%s.jpg", fileName);
+                printf("2\n");
                 receiveUploadedFile(sockfd, file_path);
+                printf("3\n");
+                memset(fileName, '\0', strlen(fileName) + 1);
                 break;
 			case NO_IMG_FOUND:
-				memset(recvReq, '\0', strlen(recvReq) + 1);
 				printf(FG_RED "No images found!!!\n" ); 
 				break;
 			default:
 				break;
 			}
-            fileName = NULL;
 		}else if (receive == 0) {
 		}
 	}
 }
 
 void recv_sig_handler(UserData *userData) {
-    printf("[+]SEND_DONE = %d\n", send_done);
-    while(1) {
-        if(send_done == 1) {
-            // create_show_img_grid(userData);
-            gtk_widget_hide(userData->screenApp->findContainer.window);
-            send_done = 0;
-        }
-    }
+    // printf("[+]SEND_DONE = %d\n", send_done);
+    // while(1) {
+    //     if(send_done == 1) {
+    //         // create_show_img_to_download_grid(userData);
+    //         gtk_widget_hide(userData->screenApp->findContainer.window);
+    //         send_done = 0;
+    //     }
+    // }
 }
 
 void *SendFileToServer(int new_socket, char fname[50]) {
@@ -652,11 +720,11 @@ void enter_login(GtkButton *button, UserData *userData) {
 			exit(EXIT_FAILURE);
 		}
 
-        pthread_t recv_sig_thread;
-        if (pthread_create(&recv_sig_thread, NULL, (void *)recv_sig_handler, userData) != 0) {
-        	printf("[-]ERROR: pthread\n");
-        	exit(EXIT_FAILURE);
-        }
+        // pthread_t recv_sig_thread;
+        // if (pthread_create(&recv_sig_thread, NULL, (void *)recv_sig_handler, userData) != 0) {
+        // 	printf("[-]ERROR: pthread\n");
+        // 	exit(EXIT_FAILURE);
+        // }
     }
 }
 
@@ -749,7 +817,6 @@ void do_not_download(GtkButton *button, UserData *userData) {
       closedir(d);
     }
     gtk_widget_hide(userData->screenApp->showResultContainer.window);
-    gtk_widget_show(userData->screenApp->findContainer.window);
     gtk_entry_set_text((GtkEntry*)userData->screenApp->findContainer.fileNameEntry, "");
 }
 
@@ -761,7 +828,7 @@ void find_img(GtkButton *button, UserData *userData) {
         strcpy(main_message, message);
 	    sendWithCheck(userData->sockFd, send_request, strlen(send_request) + 1);
         memset(send_request, '\0', strlen(send_request) + 1);
-        // show_img_to_download_clbk(button, GTK_STACK(userData->stack_box));
+        gtk_entry_set_text((GtkEntry*)userData->screenApp->findContainer.fileNameEntry, "");
     }
 }
 
