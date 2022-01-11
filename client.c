@@ -27,10 +27,11 @@ GtkWidget *create_login_grid(GtkWidget *stack, UserData *userData);
 GtkWidget *create_register_grid(GtkWidget *stack, UserData *userData);
 GtkWidget *create_find_box(GtkWidget *stack, UserData *userData);
 GtkWidget *create_find_grid(GtkWidget *stack, UserData *userData);
-GtkWidget *create_show_img_downloaded_grid(GtkWidget *stack, UserData *userData);
 void create_home_window(UserData *userData);
 void initPreLoginScreen(UserData *userData);
+void create_show_img_downloaded(UserData *userData);
 void create_show_img_grid(UserData *userData);
+void create_alert_window(char *label_str, UserData *userData);
 void load_css(void);
 
 // ================  =====================
@@ -40,7 +41,6 @@ void main_clbk(GtkButton *button, GtkStack *stack);
 void register_clbk(GtkButton *button, GtkStack *stack);
 void back_clbk(GtkButton* button, GtkStack *stack);
 void find_action_clbk(GtkButton* button, GtkStack *stack);
-void show_action_clbk(GtkButton* button, GtkStack *stack);
 
 // ================ THREAD ====================
 void recv_msg_handler(UserData *userData);
@@ -55,6 +55,7 @@ void find_img(GtkButton *button, UserData *userData);
 void exitFind(GtkButton *button, UserData *userData);
 void do_not_download(GtkButton *button, UserData *userData);
 void quit_sys_clbk(GtkButton *button, UserData *userData);
+void quit_alert();
 
 // ================  =====================
 int count_file_in_dir(char *dir_name);
@@ -287,7 +288,8 @@ GtkWidget *create_stack_box(GtkWidget **stack) {
 GtkWidget *create_find_box(GtkWidget *stack, UserData *userData) {
     GtkWidget *box, *findLabel, *find_button,  *exit_button, *logou_button, *show_img;
     GtkWidget *grid, *image;
-    
+    char *welcome;
+    sprintf(welcome, "WELCOME %s TO SYSTEM", userData->username);
     /// *** Create the Box
     grid = gtk_grid_new();
     box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
@@ -296,11 +298,11 @@ GtkWidget *create_find_box(GtkWidget *stack, UserData *userData) {
     show_img = gtk_button_new_with_label("SHOW IMAGE");
     logou_button = gtk_button_new_with_label("LOG OUT");
     exit_button = gtk_button_new_with_label("EXIT");
-    findLabel = gtk_label_new("WELCOME TO SYSTEM");
+    findLabel = gtk_label_new(welcome);
 
     GdkPixbuf *pb;
 
-    pb = gdk_pixbuf_new_from_file("user.png", NULL);
+    pb = gdk_pixbuf_new_from_file("tuyen.jpg", NULL);
     pb = gdk_pixbuf_scale_simple(pb, 150, 150, GDK_INTERP_BILINEAR);
     image = gtk_image_new_from_pixbuf(gdk_pixbuf_copy(pb));
     gtk_image_set_from_pixbuf(GTK_IMAGE(image), pb);
@@ -316,9 +318,9 @@ GtkWidget *create_find_box(GtkWidget *stack, UserData *userData) {
     gtk_box_pack_start(GTK_BOX(box), exit_button, 0, 0, 0);
 
     g_signal_connect(find_button, "clicked", G_CALLBACK(find_action_clbk), stack);
-    g_signal_connect(show_img, "clicked", G_CALLBACK(show_action_clbk), stack);
     g_signal_connect(logou_button, "clicked", G_CALLBACK(exitFind), userData);
     g_signal_connect(exit_button, "clicked", G_CALLBACK(quit_clbk), userData);
+    g_signal_connect(show_img, "clicked", G_CALLBACK(create_show_img_downloaded), userData);
 
     userData->screenApp->findContainer.window = box;
 
@@ -357,10 +359,11 @@ GtkWidget *create_find_grid(GtkWidget *stack, UserData *userData) {
     return grid;
 }
 
-GtkWidget *create_show_img_downloaded_grid(GtkWidget *stack, UserData *userData) {
-    GtkWidget *grid, *image, *image_button, *not_download, *back_btn;
+void create_show_img_downloaded(UserData *userData) {
+    GtkWidget *window, *grid;
+    GtkWidget *image, *image_button, *back_btn;
     GdkPixbuf *pb;
-    gtk_init(NULL, NULL);
+    // gtk_init(NULL, NULL);
     grid = gtk_grid_new();
     gtk_grid_set_column_spacing((GtkGrid *)grid, 10);
     int k = 0, count_img = 0;
@@ -379,18 +382,15 @@ GtkWidget *create_show_img_downloaded_grid(GtkWidget *stack, UserData *userData)
       }
       closedir(d);
     }
-    printf("LIST IMGS: %s\tCOUNT: %d\n", list_img_clients, count_img);
     char *fileName = strtok(list_img_clients, "*");
     for (int i = 0; i <= count_img; i++) {
         if(i == count_img) {
-            gtk_grid_attach(GTK_GRID(grid), back_btn, count_img, count_img, 1, 1);
+            gtk_grid_attach(GTK_GRID(grid), back_btn, count_img, count_img / 3 + 2, 1, 1);
             break;
         }
-        gchar name[50];
         char file_path[200];
-        sprintf(name, "%s%d", "Image", i);
         sprintf(file_path, "./download_imgs/%s", fileName);
-        image_button = gtk_button_new_with_label(name);
+        image_button = gtk_button_new_with_label(fileName);
         pb = gdk_pixbuf_new_from_file(file_path, NULL);
         pb = gdk_pixbuf_scale_simple(pb, 100, 100, GDK_INTERP_BILINEAR);
         image = gtk_image_new_from_pixbuf(gdk_pixbuf_copy(pb));
@@ -403,13 +403,36 @@ GtkWidget *create_show_img_downloaded_grid(GtkWidget *stack, UserData *userData)
             k++;
         fileName = strtok(NULL, "*");
     }
-    g_signal_connect(back_btn, "clicked", G_CALLBACK(back_clbk), stack);
-    return grid;
+    free(fileName);
+    gtk_window_set_deletable((GtkWindow*)window, FALSE);
+    gtk_container_add(GTK_CONTAINER(window), grid);
+    label_alert = window;
+    g_signal_connect(back_btn, "clicked", G_CALLBACK(quit_alert), NULL);
+
+    gtk_widget_show_all(window);
+
+}
+
+void create_alert_window(char *label_str, UserData *userData) {
+    GtkWidget *window, *label_STR, *button_OK, *box; 
+    window = createWindow(250, 150, "結果");
+    box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
+    label_STR = gtk_label_new(label_str);
+    button_OK = gtk_button_new_with_label("OK");
+    gtk_box_pack_start(GTK_BOX(box), label_STR, 0, 0, 0);
+    gtk_box_pack_start(GTK_BOX(box), button_OK, 0, 0, 0);
+    gtk_container_add(GTK_CONTAINER(window), box);
+
+    gtk_window_set_deletable((GtkWindow*)window, FALSE);
+    label_alert = window;
+    g_signal_connect_swapped(button_OK, "clicked", G_CALLBACK(quit_alert), NULL);
+
+    gtk_widget_show_all(window);
 }
 
 void create_home_window(UserData *userData) {
     GtkWidget *window, *box, *stack_box, *stack;
-    GtkWidget *findLabel, *find_box, *find_grid, *show_grid;
+    GtkWidget *findLabel, *find_box, *find_grid;
     
 
     window = createWindow(600, 400, "SHARE IMAGE APPPICATION");
@@ -419,11 +442,9 @@ void create_home_window(UserData *userData) {
     find_box = create_find_box(stack, userData);
     find_grid = create_find_grid(stack, userData);
     load_css();
-    show_grid = create_show_img_downloaded_grid(stack, userData);
 
     gtk_stack_add_named(GTK_STACK(stack), find_box, "Main_find");
     gtk_stack_add_named(GTK_STACK(stack), find_grid, "Find");
-    gtk_stack_add_named(GTK_STACK(stack), show_grid, "Show");
 
     gtk_stack_set_transition_type(GTK_STACK(stack), GTK_STACK_TRANSITION_TYPE_OVER_DOWN_UP);
     gtk_stack_set_transition_duration(GTK_STACK(stack), 1000);
@@ -436,6 +457,10 @@ void create_home_window(UserData *userData) {
 }
 
 void create_show_img_grid(UserData *userData) {
+    if(count_file_in_dir("./temporary_image/") == 0) {
+        create_alert_window("NO IMAGE FOUND", userData);
+        return;
+    }
     GtkWidget *grid, *window;
     window = createWindow(500, 400, "SHARE IMAGE APPPICATION");
     grid = gtk_grid_new();
@@ -483,6 +508,7 @@ void create_show_img_grid(UserData *userData) {
         g_signal_connect(image_button, "clicked", G_CALLBACK(download_img), userData);
         g_signal_connect(not_download, "clicked", G_CALLBACK(do_not_download), userData);
     }  
+    free(fileName);
     gtk_container_add(GTK_CONTAINER(window), grid);
     gtk_window_set_deletable((GtkWindow*)window, FALSE);
     userData->screenApp->showResultContainer.window = window;
@@ -530,14 +556,6 @@ void find_action_clbk(GtkButton* button, GtkStack *stack) {
     g_return_if_fail(GTK_IS_STACK(stack));
 
     gtk_stack_set_visible_child_full(stack, "Find", GTK_STACK_TRANSITION_TYPE_SLIDE_UP);
-    g_print("Switching to %s.\n", gtk_stack_get_visible_child_name(stack));
-}
-
-void show_action_clbk(GtkButton* button, GtkStack *stack) {
-    g_return_if_fail(GTK_IS_BUTTON(button));
-    g_return_if_fail(GTK_IS_STACK(stack));
-
-    gtk_stack_set_visible_child_full(stack, "Show", GTK_STACK_TRANSITION_TYPE_SLIDE_UP);
     g_print("Switching to %s.\n", gtk_stack_get_visible_child_name(stack));
 }
 
@@ -594,7 +612,7 @@ void recv_msg_handler(UserData *userData) {
                 memset(fileName, '\0', strlen(fileName) + 1);
                 break;
 			case NO_IMG_FOUND:
-				printf(FG_RED "No images found!!!\n" ); 
+				printf(FG_RED "No images found!!!\n" );
 				break;
 			default:
 				break;
@@ -674,10 +692,11 @@ void quit_clbk(GtkButton *button, UserData *userData) {
 }
 
 void download_img(GtkButton *button, UserData *userData) {
-    const gchar *text = gtk_button_get_label(button);
+    gchar *text = gtk_button_get_label(button);
     char file_path1[1024], file_path2[1024];
+    sprintf(file_path2, "./temporary_image/%s", text);
+    text[strlen(text) - 4] = '\0';
     sprintf(file_path1, "./download_imgs/%s_%s", text, main_message);
-    sprintf(file_path2, "./temporary_image/%s.jpg", text);
     FILE *fp2 = fopen(file_path2, "r");
     FILE *fp1 = fopen(file_path1, "w");
     char buff[1024];
@@ -704,7 +723,7 @@ void download_img(GtkButton *button, UserData *userData) {
       closedir(d);
     }
     gtk_widget_hide(userData->screenApp->showResultContainer.window);
-    gtk_widget_show(userData->screenApp->findContainer.window);
+    // gtk_widget_show(userData->screenApp->findContainer.window);
     gtk_entry_set_text((GtkEntry*)userData->screenApp->findContainer.fileNameEntry, "");
 }
 
@@ -763,6 +782,10 @@ void exitFind(GtkButton *button, UserData *userData) {
         gtk_entry_set_text((GtkEntry*)userData->screenApp->preLoginContainer.login_user_name, "");
         gtk_entry_set_text((GtkEntry*)userData->screenApp->preLoginContainer.login_password, "");
     }
+}
+
+void quit_alert() {
+    gtk_widget_hide(label_alert);
 }
 
 // ================ END EVENT CLICK =====================
