@@ -20,10 +20,15 @@ typedef struct{
     GtkWidget *window;
 } ShowResultContainer;
 
+typedef struct{
+    GtkWidget *window;
+} ShowResourcesContainer;
+
 typedef struct {
     PreLoginContainer preLoginContainer;
     FindContainer findContainer;
     ShowResultContainer showResultContainer;
+    ShowResourcesContainer showResourcesContainer;
 } ScreenApp;
 
 typedef struct{
